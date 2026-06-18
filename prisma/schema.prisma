@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  HR_ADMIN
+  HIRING_MANAGER
+  LINE_MANAGER
+  EMPLOYEE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  employee     Employee? @relation("UserEmployee")
+  createdAt    DateTime @default(now())
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  RESIGNED
+}
+
+enum ContractType {
+  PERMANENT
+  FIXED_TERM
+  PROBATION
+  CONTRACTOR
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum TalentStatus {
+  NOT_ASSESSED
+  CORE
+  HIGH_POTENTIAL
+  TOP_TALENT
+  AT_RISK
+}
+
+model Employee {
+  id          String  @id @default(cuid())
+  employeeCode String @unique
+
+  // Identity
+  firstName String
+  lastName  String
+  fullName  String
+  photoUrl  String?
+  businessEmail String @unique
+  personalEmail String?
+
+  // Org placement
+  workLocation  String?
+  businessUnit  String?
+  designation   String?
+  division      String?
+  function      String?
+  functionType  String?
+  vertical      String?
+  jobLocation   String?
+  department    String?
+  systemAuthority String?
+
+  // Employment
+  contractType         ContractType?
+  contractRenewalDate  DateTime?
+  status               EmploymentStatus @default(ACTIVE)
+  sourceOfHiring       String?
+  dateOfJoining        DateTime?
+  dateOfExit           DateTime?
+  reportingManagerId   String?
+  reportingManager     Employee?  @relation("ManagerSubordinates", fields: [reportingManagerId], references: [id])
+  subordinates         Employee[] @relation("ManagerSubordinates")
+
+  // Personal
+  dateOfBirth        DateTime?
+  gender             Gender?
+  maritalStatus      MaritalStatus?
+  workPhone          String?
+  personalPhone      String?
+  alternativePhone   String?
+  presentAddress     String?
+  idAddress          String?
+  socialInsuranceNumber String?
+  socialInsuranceStatus  String?
+  medicalInsurancePlan       String?
+  medicalInsuranceExpiryDate DateTime?
+  bankAccountName    String?
+  bankAccountNumber  String?
+  idNumber           String?
+  idExpiryDate       DateTime?
+
+  // Career
+  jobLevel             String?
+  personalLevel        String?
+  lastPromotionDate    DateTime?
+  previousTitleAtPromotion String?
+  lastTransferDate     DateTime?
+  previousTitleAtTransfer String?
+  probationScore       Float?
+  talentStatus         TalentStatus @default(NOT_ASSESSED)
+  lastTalentEvaluationDate DateTime?
+
+  user   User?  @relation("UserEmployee", fields: [userId], references: [id])
+  userId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

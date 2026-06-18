@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/lib/generated/prisma
+
+# sqlite database
+/dev.db
+/dev.db-journal
+
+# uploaded files (CVs, offer PDFs, employee photos)
+/uploads
