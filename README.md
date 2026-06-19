@@ -4,7 +4,7 @@ Internal HR platform for NAQLA Trucking, built per `reference-assets/People.docx
 
 ## Stack
 
-Next.js (App Router) + TypeScript, Prisma + SQLite (dev), NextAuth (credentials), Tailwind + shadcn/ui, Anthropic Claude API (later phases).
+Next.js (App Router) + TypeScript, Prisma + PostgreSQL, NextAuth (credentials), Tailwind + shadcn/ui, Anthropic Claude API (later phases).
 
 ## Getting started
 
@@ -26,4 +26,7 @@ Seeded users (password `ChangeMe123!` for all):
 
 - **Personnel** — implemented (employee records, CRUD, role-gated)
 - Compensation, Recruitment, Onboarding, Performance, Talent — planned, shown as "soon" in the sidebar
-# staging marker Fri Jun 19 18:43:20 EDT 2026
+
+## Deployment
+
+Hosted on Railway with separate `staging` and `production` environments, each with its own Postgres database. GitHub pushes auto-deploy: `staging` branch → staging environment, `main` branch → production environment.
