@@ -26,3 +26,4 @@ Seeded users (password `ChangeMe123!` for all):
 
 - **Personnel** — implemented (employee records, CRUD, role-gated)
 - Compensation, Recruitment, Onboarding, Performance, Talent — planned, shown as "soon" in the sidebar
+# staging marker Fri Jun 19 18:43:20 EDT 2026
