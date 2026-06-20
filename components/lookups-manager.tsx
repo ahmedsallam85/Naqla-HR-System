@@ -43,7 +43,8 @@ export function LookupsManager() {
   }
 
   useEffect(() => {
-    loadValues();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load on mount
+    void loadValues();
   }, []);
 
   const valuesForCategory = allValues.filter(

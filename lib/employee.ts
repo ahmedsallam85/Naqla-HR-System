@@ -23,6 +23,30 @@ export function calculateAge(dateOfBirth: Date | string | null | undefined) {
   return age;
 }
 
+const DATE_FIELDS = [
+  "dateOfBirth",
+  "dateOfJoining",
+  "dateOfExit",
+  "contractRenewalDate",
+  "medicalInsuranceExpiryDate",
+  "idExpiryDate",
+  "lastPromotionDate",
+  "lastTransferDate",
+  "lastTalentEvaluationDate",
+] as const;
+
+export function toPrismaEmployeeData<T extends Record<string, unknown>>(
+  data: T
+): T {
+  const result: Record<string, unknown> = { ...data };
+  for (const key of DATE_FIELDS) {
+    if (key in result) {
+      result[key] = result[key] ? new Date(result[key] as string) : undefined;
+    }
+  }
+  return result as T;
+}
+
 export function isContractExpiringSoon(
   contractRenewalDate: Date | string | null | undefined
 ) {

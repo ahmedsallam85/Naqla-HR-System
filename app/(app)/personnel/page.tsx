@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { isContractExpiringSoon } from "@/lib/employee";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ImportEmployeesDialog } from "@/components/import-employees-dialog";
 import {
   Table,
   TableBody,
@@ -46,12 +47,27 @@ export default async function PersonnelPage({
             {employees.length} employee{employees.length === 1 ? "" : "s"}
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex items-center gap-2">
           <Button
+            variant="outline"
             nativeButton={false}
-            render={<Link href="/personnel/new">Add employee</Link>}
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page route
+            render={<a href="/api/employees/export?blank=1">Download template</a>}
           />
-        )}
+          <Button
+            variant="outline"
+            nativeButton={false}
+            // eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page route
+            render={<a href="/api/employees/export">Export to Excel</a>}
+          />
+          {isAdmin && <ImportEmployeesDialog />}
+          {isAdmin && (
+            <Button
+              nativeButton={false}
+              render={<Link href="/personnel/new">Add employee</Link>}
+            />
+          )}
+        </div>
       </div>
 
       <form className="flex gap-2" method="GET">
