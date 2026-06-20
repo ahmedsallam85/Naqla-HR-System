@@ -58,6 +58,18 @@ enum TalentStatus {
   AT_RISK
 }
 
+model LookupValue {
+  id        String   @id @default(cuid())
+  category  String
+  value     String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([category, value])
+  @@index([category])
+}
+
 model Employee {
   id          String  @id @default(cuid())
   employeeCode String @unique

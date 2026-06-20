@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { label: "Talent", href: "/talent", enabled: false },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -54,6 +54,23 @@ export function AppSidebar() {
           );
         })}
       </nav>
+      {isAdmin && (
+        <nav className="mt-auto flex flex-col gap-1 border-t border-sidebar-border px-3 py-3">
+          <span className="px-3 text-[10px] tracking-widest text-muted-foreground">
+            ADMIN
+          </span>
+          <Link
+            href="/admin/lookups"
+            className={cn(
+              "rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent",
+              pathname.startsWith("/admin/lookups") &&
+                "bg-sidebar-accent text-primary font-medium"
+            )}
+          >
+            Dropdown Lists
+          </Link>
+        </nav>
+      )}
     </aside>
   );
 }

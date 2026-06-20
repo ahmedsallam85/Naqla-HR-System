@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveLookups } from "@/lib/get-lookups";
 import { EmployeeForm } from "@/components/employee-form";
 
 export default async function EditEmployeePage({
@@ -17,16 +18,24 @@ export default async function EditEmployeePage({
   const employee = await prisma.employee.findUnique({ where: { id } });
   if (!employee) notFound();
 
-  const managers = await prisma.employee.findMany({
-    where: { id: { not: id } },
-    select: { id: true, fullName: true, employeeCode: true },
-    orderBy: { fullName: "asc" },
-  });
+  const [managers, lookups] = await Promise.all([
+    prisma.employee.findMany({
+      where: { id: { not: id } },
+      select: { id: true, fullName: true, employeeCode: true },
+      orderBy: { fullName: "asc" },
+    }),
+    getActiveLookups(),
+  ]);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Edit {employee.fullName}</h1>
-      <EmployeeForm mode="edit" employee={employee} managers={managers} />
+      <EmployeeForm
+        mode="edit"
+        employee={employee}
+        managers={managers}
+        lookups={lookups}
+      />
     </div>
   );
 }

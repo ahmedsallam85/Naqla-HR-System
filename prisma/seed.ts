@@ -1,6 +1,7 @@
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { LOOKUP_DEFAULTS } from "./lookup-defaults";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
@@ -16,10 +17,24 @@ async function upsertUser(email: string, password: string, role: "HR_ADMIN" | "H
   });
 }
 
+async function seedLookups() {
+  for (const [category, values] of Object.entries(LOOKUP_DEFAULTS)) {
+    for (const [index, value] of values.entries()) {
+      await prisma.lookupValue.upsert({
+        where: { category_value: { category, value } },
+        update: {},
+        create: { category, value, sortOrder: index },
+      });
+    }
+  }
+  console.log("Lookup defaults seeded.");
+}
+
 async function main() {
   await upsertUser("admin@naqla.com", "ChangeMe123!", "HR_ADMIN");
   await upsertUser("manager@naqla.com", "ChangeMe123!", "LINE_MANAGER");
   await upsertUser("employee@naqla.com", "ChangeMe123!", "EMPLOYEE");
+  await seedLookups();
 
   const existing = await prisma.employee.count();
   if (existing > 0) {

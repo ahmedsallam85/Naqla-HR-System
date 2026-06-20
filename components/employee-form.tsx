@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { LookupCategoryKey } from "@/lib/lookup-categories";
 
 type FieldType = "text" | "email" | "date" | "number" | "select";
 
@@ -28,9 +29,12 @@ type FieldConfig = {
   type: FieldType;
   required?: boolean;
   options?: { value: string; label: string }[];
+  lookupCategory?: LookupCategoryKey;
 };
 
 type ManagerOption = { id: string; fullName: string; employeeCode: string };
+type LookupOption = { id: string; value: string };
+type Lookups = Partial<Record<LookupCategoryKey, LookupOption[]>>;
 
 const IDENTITY_FIELDS: FieldConfig[] = [
   { name: "firstName", label: "First name", type: "text", required: true },
@@ -41,16 +45,16 @@ const IDENTITY_FIELDS: FieldConfig[] = [
 ];
 
 const ORG_FIELDS: FieldConfig[] = [
-  { name: "workLocation", label: "Work location", type: "text" },
-  { name: "businessUnit", label: "Business unit", type: "text" },
-  { name: "designation", label: "Designation", type: "text" },
-  { name: "division", label: "Division", type: "text" },
-  { name: "function", label: "Function", type: "text" },
-  { name: "functionType", label: "Function type", type: "text" },
-  { name: "vertical", label: "Vertical", type: "text" },
-  { name: "jobLocation", label: "Job location", type: "text" },
-  { name: "department", label: "Department", type: "text" },
-  { name: "systemAuthority", label: "System authority", type: "text" },
+  { name: "workLocation", label: "Work location", type: "select", lookupCategory: "WORK_LOCATION" },
+  { name: "businessUnit", label: "Business unit", type: "select", lookupCategory: "BUSINESS_UNIT" },
+  { name: "designation", label: "Designation", type: "select", lookupCategory: "DESIGNATION" },
+  { name: "division", label: "Division", type: "select", lookupCategory: "DIVISION" },
+  { name: "function", label: "Function", type: "select", lookupCategory: "FUNCTION" },
+  { name: "functionType", label: "Function type", type: "select", lookupCategory: "FUNCTION_TYPE" },
+  { name: "vertical", label: "Vertical", type: "select", lookupCategory: "VERTICAL" },
+  { name: "jobLocation", label: "Job location", type: "select", lookupCategory: "JOB_LOCATION" },
+  { name: "department", label: "Department", type: "select", lookupCategory: "DEPARTMENT" },
+  { name: "systemAuthority", label: "System authority", type: "select", lookupCategory: "SYSTEM_AUTHORITY" },
 ];
 
 const EMPLOYMENT_FIELDS: FieldConfig[] = [
@@ -75,7 +79,7 @@ const EMPLOYMENT_FIELDS: FieldConfig[] = [
       { value: "RESIGNED", label: "Resigned" },
     ],
   },
-  { name: "sourceOfHiring", label: "Source of hiring", type: "text" },
+  { name: "sourceOfHiring", label: "Source of hiring", type: "select", lookupCategory: "SOURCE_OF_HIRING" },
   { name: "dateOfJoining", label: "Date of joining", type: "date" },
   { name: "dateOfExit", label: "Date of exit", type: "date" },
 ];
@@ -172,16 +176,36 @@ function buildInitialState(employee?: Record<string, unknown>) {
   return state;
 }
 
+function resolveOptions(
+  field: FieldConfig,
+  lookups: Lookups,
+  currentValue: string
+): { value: string; label: string }[] {
+  if (!field.lookupCategory) return field.options ?? [];
+
+  const fromLookup = (lookups[field.lookupCategory] ?? []).map((l) => ({
+    value: l.value,
+    label: l.value,
+  }));
+
+  if (currentValue && !fromLookup.some((o) => o.value === currentValue)) {
+    return [{ value: currentValue, label: currentValue }, ...fromLookup];
+  }
+  return fromLookup;
+}
+
 function FieldGroup({
   title,
   fields,
   values,
   onChange,
+  lookups,
 }: {
   title: string;
   fields: FieldConfig[];
   values: Record<string, string>;
   onChange: (name: string, value: string) => void;
+  lookups: Lookups;
 }) {
   return (
     <Card>
@@ -204,7 +228,7 @@ function FieldGroup({
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {field.options?.map((opt) => (
+                  {resolveOptions(field, lookups, values[field.name]).map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>
@@ -231,10 +255,12 @@ export function EmployeeForm({
   mode,
   employee,
   managers,
+  lookups,
 }: {
   mode: "create" | "edit";
   employee?: Record<string, unknown>;
   managers: ManagerOption[];
+  lookups: Lookups;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -281,6 +307,7 @@ export function EmployeeForm({
         fields={IDENTITY_FIELDS}
         values={values}
         onChange={onChange}
+        lookups={lookups}
       />
       <Card>
         <CardHeader>
@@ -290,11 +317,21 @@ export function EmployeeForm({
           {ORG_FIELDS.map((field) => (
             <div key={field.name} className="space-y-2">
               <Label htmlFor={field.name}>{field.label}</Label>
-              <Input
-                id={field.name}
-                value={values[field.name] || ""}
-                onChange={(e) => onChange(field.name, e.target.value)}
-              />
+              <Select
+                value={values[field.name] || undefined}
+                onValueChange={(v) => onChange(field.name, v ?? "")}
+              >
+                <SelectTrigger id={field.name} className="w-full">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {resolveOptions(field, lookups, values[field.name]).map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ))}
           <div className="space-y-2">
@@ -321,6 +358,7 @@ export function EmployeeForm({
         title="Employment"
         fields={EMPLOYMENT_FIELDS}
         values={values}
+        lookups={lookups}
         onChange={onChange}
       />
       <FieldGroup
@@ -328,12 +366,14 @@ export function EmployeeForm({
         fields={PERSONAL_FIELDS}
         values={values}
         onChange={onChange}
+        lookups={lookups}
       />
       <FieldGroup
         title="Career"
         fields={CAREER_FIELDS}
         values={values}
         onChange={onChange}
+        lookups={lookups}
       />
       <div className="flex justify-end gap-3">
         <Button type="button" variant="ghost" onClick={() => router.back()}>
