@@ -18,12 +18,13 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(EMPLOYEE)
-  employee     Employee? @relation("UserEmployee")
-  createdAt    DateTime @default(now())
+  id              String          @id @default(cuid())
+  email           String          @unique
+  passwordHash    String
+  role            Role            @default(EMPLOYEE)
+  employee        Employee?       @relation("UserEmployee")
+  jobEvaluations  JobEvaluation[]
+  createdAt       DateTime        @default(now())
 }
 
 enum EmploymentStatus {
@@ -68,6 +69,57 @@ model LookupValue {
 
   @@unique([category, value])
   @@index([category])
+}
+
+model JobRole {
+  id               String          @id @default(cuid())
+  title            String
+  department       String?
+  division         String?
+  responsibilities String?
+  evaluations      JobEvaluation[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model JobEvaluation {
+  id        String  @id @default(cuid())
+  jobRoleId String
+  jobRole   JobRole @relation(fields: [jobRoleId], references: [id], onDelete: Cascade)
+
+  // Know-How inputs (Hay codes)
+  khTech   String
+  khFt     String
+  khMgmt   String
+  khMgmtFt String
+  khHr     String
+
+  // Problem Solving inputs
+  psTe String
+  psTc String
+
+  // Accountability inputs
+  accFta  String
+  accMag  String
+  accType String
+
+  // Computed results
+  khPoints    Int
+  psPoints    Int
+  accPoints   Int
+  totalPoints Int
+  hayLevel    String
+  khNotation  String
+
+  khValidity  String?
+  psValidity  String?
+  accValidity String?
+  notes       String?
+
+  evaluatorId String?
+  evaluator   User?   @relation(fields: [evaluatorId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model Employee {

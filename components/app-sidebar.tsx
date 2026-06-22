@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { label: "Personnel", href: "/personnel", enabled: true },
+  { label: "Job Grading", href: "/job-grading", enabled: true },
   { label: "Compensation", href: "/compensation", enabled: false },
   { label: "Recruitment", href: "/recruitment", enabled: false },
   { label: "Onboarding", href: "/onboarding", enabled: false },
