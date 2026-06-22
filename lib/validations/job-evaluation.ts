@@ -15,6 +15,7 @@ export const jobEvaluationInputSchema = z.object({
   khHr: z.string().min(1, "Human Relations Know-How is required"),
   psTe: z.string().min(1, "Thinking Environment is required"),
   psTc: z.string().min(1, "Thinking Challenge is required"),
+  psFt: z.string(),
   accFta: z.string().min(1, "Freedom to Act is required"),
   accMag: z.string().min(1, "Magnitude is required"),
   accType: z.string().min(1, "Accountability Type is required"),

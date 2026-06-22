@@ -97,6 +97,7 @@ model JobEvaluation {
   // Problem Solving inputs
   psTe String
   psTc String
+  psFt String @default("")
 
   // Accountability inputs
   accFta  String

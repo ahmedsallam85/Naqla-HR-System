@@ -23,6 +23,7 @@ import {
   KH_HR,
   PS_TE,
   PS_TC,
+  PS_FT,
   ACC_FTA,
   ACC_MAG,
   getAccTypeOptions,
@@ -30,7 +31,6 @@ import {
   getKhNotation,
   getKhValidity,
   getPsPoints,
-  isPsBlocked,
   getPsValidity,
   getAccPoints,
   getAccValidity,
@@ -102,6 +102,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
   const [khHr, setKhHr] = useState("");
   const [psTe, setPsTe] = useState("");
   const [psTc, setPsTc] = useState("");
+  const [psFt, setPsFt] = useState(STANDARD);
   const [accFta, setAccFta] = useState("");
   const [accMag, setAccMag] = useState("");
   const [accType, setAccType] = useState("");
@@ -120,8 +121,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
   const khValidity = getKhValidity(khMgmt || undefined, khHr || undefined);
   const khNotation = getKhNotation(khInput);
 
-  const psBlocked = isPsBlocked(psTe || undefined, psTc || undefined);
-  const psPoints = getPsPoints(khPoints, psTe, psTc);
+  const psPoints = getPsPoints(khPoints, psTe, psTc, toCode(psFt));
   const psValidity = getPsValidity(psTe || undefined, psTc || undefined);
 
   const accTypeOptions = getAccTypeOptions(accMag || undefined);
@@ -155,6 +155,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
         khHr,
         psTe,
         psTc,
+        psFt: toCode(psFt),
         accFta,
         accMag,
         accType,
@@ -201,21 +202,14 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
           <CardTitle className="text-base">Problem Solving</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <CodeSelect id="psTe" label="Thinking environment" options={PS_TE} value={psTe} onChange={setPsTe} />
             <CodeSelect id="psTc" label="Thinking challenge" options={PS_TC} value={psTc} onChange={setPsTc} />
+            <CodeSelect id="psFt" label="Fine-tuning" options={PS_FT} value={psFt} onChange={setPsFt} />
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted p-3 text-sm">
-            {psBlocked ? (
-              <span className="text-destructive">
-                This Thinking Environment / Thinking Challenge combination is not valid in Hay
-              </span>
-            ) : (
-              <>
-                <span className="font-semibold">{psPoints ?? "—"} points</span>
-                <ValidityBadge validity={psValidity} />
-              </>
-            )}
+            <span className="font-semibold">{psPoints ?? "—"} points</span>
+            <ValidityBadge validity={psValidity} />
           </div>
         </CardContent>
       </Card>
@@ -268,7 +262,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
         <Button type="button" variant="ghost" onClick={() => router.back()}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} disabled={!allFilled || psBlocked || submitting}>
+        <Button onClick={handleSubmit} disabled={!allFilled || submitting}>
           {submitting ? "Saving..." : "Save evaluation"}
         </Button>
       </div>

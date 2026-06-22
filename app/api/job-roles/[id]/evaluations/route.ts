@@ -10,6 +10,7 @@ import {
   KH_HR,
   PS_TE,
   PS_TC,
+  PS_FT,
   ACC_FTA,
   ACC_MAG,
   getAccTypeOptions,
@@ -17,7 +18,6 @@ import {
   getKhNotation,
   getKhValidity,
   getPsPoints,
-  isPsBlocked,
   getPsValidity,
   getAccPoints,
   getAccValidity,
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!codeExists(KH_HR, input.khHr)) invalid.push("khHr");
   if (!codeExists(PS_TE, input.psTe)) invalid.push("psTe");
   if (!codeExists(PS_TC, input.psTc)) invalid.push("psTc");
+  if (!codeExists(PS_FT, input.psFt)) invalid.push("psFt");
   if (!codeExists(ACC_FTA, input.accFta)) invalid.push("accFta");
   if (!codeExists(ACC_MAG, input.accMag)) invalid.push("accMag");
   if (!codeExists(getAccTypeOptions(input.accMag), input.accType)) invalid.push("accType");
@@ -65,15 +66,8 @@ export async function POST(req: NextRequest, { params }: Params) {
     );
   }
 
-  if (isPsBlocked(input.psTe, input.psTc)) {
-    return NextResponse.json(
-      { error: "That Thinking Environment / Thinking Challenge combination is not a valid Hay combination" },
-      { status: 400 }
-    );
-  }
-
   const khPoints = getKhPoints(input);
-  const psPoints = getPsPoints(khPoints, input.psTe, input.psTc);
+  const psPoints = getPsPoints(khPoints, input.psTe, input.psTc, input.psFt);
   const accPoints = getAccPoints(input.accFta, input.accMag, input.accType);
 
   if (khPoints == null || psPoints == null || accPoints == null) {
@@ -93,6 +87,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       khHr: input.khHr,
       psTe: input.psTe,
       psTc: input.psTc,
+      psFt: input.psFt,
       accFta: input.accFta,
       accMag: input.accMag,
       accType: input.accType,

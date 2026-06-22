@@ -8,15 +8,17 @@ type TechOption = CodeOption & { base: number };
 type OffsetOption = CodeOption & { offset: number };
 type IndexedOption = CodeOption & { index: number };
 
+// Bases shifted +15 vs. the original tool so they index directly into the
+// extended master sequence (SEQ) shared with Problem-Solving below.
 export const KH_TECH: TechOption[] = [
-  { code: "A", base: 2, label: "Primary" },
-  { code: "B", base: 4, label: "Elementary Vocational" },
-  { code: "C", base: 6, label: "Vocational" },
-  { code: "D", base: 8, label: "Advanced Vocational" },
-  { code: "E", base: 10, label: "Basic Professional" },
-  { code: "F", base: 12, label: "Seasoned Professional" },
-  { code: "G", base: 14, label: "Professional Mastery" },
-  { code: "H", base: 16, label: "Unique Authority" },
+  { code: "A", base: 17, label: "Primary" },
+  { code: "B", base: 19, label: "Elementary Vocational" },
+  { code: "C", base: 21, label: "Vocational" },
+  { code: "D", base: 23, label: "Advanced Vocational" },
+  { code: "E", base: 25, label: "Basic Professional" },
+  { code: "F", base: 27, label: "Seasoned Professional" },
+  { code: "G", base: 29, label: "Professional Mastery" },
+  { code: "H", base: 31, label: "Unique Authority" },
 ];
 
 export const KH_FT: OffsetOption[] = [
@@ -41,10 +43,21 @@ export const KH_HR: IndexedOption[] = [
   { code: "3", index: 2, label: "Critical" },
 ];
 
-const HAY_SEQ = [
-  33, 38, 43, 50, 57, 66, 76, 87, 100, 115, 132, 152, 175, 200, 230, 264, 304,
-  350, 400, 460, 528, 608, 700, 800, 920, 1056, 1216, 1400,
+// Hay's numerical scale is one continuous geometric (15%-step) sequence.
+// Know-How values and Problem-Solving percentages are both slices of it,
+// which is why combining them is index addition, not percentage multiplication
+// (verified against JE-HANDOUT-03's worked example: KH=200, PS=29% -> 57,
+// not round(200*0.29)=58). Index 23 = 100, the "no change" point.
+const SEQ = [
+  3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 19, 22, 25, 29, 33, 38, 43, 50, 57, 66,
+  76, 87, 100, 115, 132, 152, 175, 200, 230, 264, 304, 350, 400, 460, 528, 608,
+  700, 800, 920, 1056, 1216, 1400,
 ];
+const SEQ_HUNDRED_INDEX = 23;
+
+function seqIndexOf(value: number): number {
+  return SEQ.indexOf(value);
+}
 
 export const PS_TE: IndexedOption[] = [
   { code: "A", index: 0, label: "Strict Routine" },
@@ -65,16 +78,29 @@ export const PS_TC: IndexedOption[] = [
   { code: "5", index: 4, label: "Uncharted" },
 ];
 
-// [TE][TC], percentage, null = blocked combination
-const PS_TABLE: (number | null)[][] = [
-  [10, 14, null, null, null],
-  [14, 19, 25, null, null],
-  [19, 25, 33, 43, null],
-  [25, 33, 43, 57, 66],
-  [33, 43, 57, 66, 76],
-  [43, 57, 66, 76, 87],
-  [57, 66, 76, 87, null],
-  [66, 76, 87, null, null],
+// [TE][TC] base ("no pull") percentage, verified against JE-HANDOUT-03's
+// confirmed example (D/3 = 29%). Every cell actually spans two adjacent
+// values on the geometric scale (the "+" fine-tune always steps up exactly
+// one SEQ position from the base — see PS_FT below); there are no blocked
+// combinations in the real Hay chart.
+const PS_TABLE: number[][] = [
+  [10, 14, 19, 25, 33],
+  [12, 16, 22, 29, 38],
+  [14, 19, 25, 33, 43],
+  [16, 22, 29, 38, 50],
+  [19, 25, 33, 43, 57],
+  [22, 29, 38, 50, 66],
+  [25, 33, 43, 57, 76],
+  [29, 38, 50, 66, 87],
+];
+
+// Fine-tuning step applied on either the Thinking Environment or Thinking
+// Challenge axis — Hay's "+" always takes the higher of the two values shown
+// in the chart box, which is exactly one step up the shared geometric scale.
+// There is no "-" for Problem-Solving.
+export const PS_FT: OffsetOption[] = [
+  { code: "", offset: 0, label: "Standard" },
+  { code: "+", offset: 1, label: "Plus" },
 ];
 
 export const ACC_FTA: IndexedOption[] = [
@@ -156,15 +182,17 @@ const KH_COLOR: Validity[][] = [
   ["blue", "yellow", "white"], // IV
 ];
 
-const PS_COLOR: (Validity | null)[][] = [
-  ["white", "yellow", null, null, null],
-  ["yellow", "white", "white", null, null],
-  ["white", "white", "white", "white", null],
-  ["yellow", "white", "white", "white", "white"],
-  ["yellow", "white", "white", "white", "white"],
-  ["blue", "yellow", "white", "white", "white"],
-  ["blue", "yellow", "white", "white", null],
-  ["yellow", "white", "white", null, null],
+// Read from the official guide chart's Likely/Less likely/Improbable
+// shading, anchored against the same cells confirmed by JE-HANDOUT-03.
+const PS_COLOR: Validity[][] = [
+  ["white", "yellow", "blue", "blue", "blue"],
+  ["yellow", "white", "blue", "blue", "blue"],
+  ["blue", "white", "white", "blue", "blue"],
+  ["blue", "yellow", "white", "yellow", "blue"],
+  ["blue", "blue", "white", "white", "yellow"],
+  ["blue", "blue", "yellow", "white", "yellow"],
+  ["blue", "blue", "blue", "white", "yellow"],
+  ["blue", "blue", "blue", "yellow", "white"],
 ];
 
 const ACC_COLOR: Validity[][] = [
@@ -203,8 +231,8 @@ export function getKhPoints(input: KhInput): number | null {
   if (!tech || !ft || !mgmt || !mgmtFt || !hr) return null;
 
   const idx = tech.base + ft.offset + mgmt.index * 2 + mgmtFt.offset + hr.index;
-  const clamped = Math.min(Math.max(idx, 0), HAY_SEQ.length - 1);
-  return HAY_SEQ[clamped];
+  const clamped = Math.min(Math.max(idx, 0), SEQ.length - 1);
+  return SEQ[clamped];
 }
 
 export function getKhNotation(input: KhInput): string {
@@ -218,25 +246,37 @@ export function getKhValidity(khMgmt: string | undefined, khHr: string | undefin
   return KH_COLOR[mgmt.index][hr.index];
 }
 
+export function getPsPercent(
+  psTe: string | undefined,
+  psTc: string | undefined,
+  psFt: string | undefined
+): number | null {
+  const te = find(PS_TE, psTe);
+  const tc = find(PS_TC, psTc);
+  const ft = find(PS_FT, psFt ?? "");
+  if (!te || !tc || !ft) return null;
+  const base = PS_TABLE[te.index][tc.index];
+  const baseIdx = seqIndexOf(base);
+  return SEQ[Math.min(baseIdx + ft.offset, SEQ.length - 1)];
+}
+
 export function getPsPoints(
   khPoints: number | null,
   psTe: string | undefined,
-  psTc: string | undefined
+  psTc: string | undefined,
+  psFt?: string
 ): number | null {
   if (khPoints == null) return null;
-  const te = find(PS_TE, psTe);
-  const tc = find(PS_TC, psTc);
-  if (!te || !tc) return null;
-  const percent = PS_TABLE[te.index][tc.index];
+  const percent = getPsPercent(psTe, psTc, psFt);
   if (percent == null) return null;
-  return Math.round((khPoints * percent) / 100);
-}
 
-export function isPsBlocked(psTe: string | undefined, psTc: string | undefined): boolean {
-  const te = find(PS_TE, psTe);
-  const tc = find(PS_TC, psTc);
-  if (!te || !tc) return false;
-  return PS_TABLE[te.index][tc.index] == null;
+  const khIdx = seqIndexOf(khPoints);
+  const percentIdx = seqIndexOf(percent);
+  if (khIdx === -1 || percentIdx === -1) return null;
+
+  const resultIdx = khIdx + percentIdx - SEQ_HUNDRED_INDEX;
+  if (resultIdx < 0) return null;
+  return SEQ[Math.min(resultIdx, SEQ.length - 1)];
 }
 
 export function getPsValidity(psTe: string | undefined, psTc: string | undefined): Validity | null {
