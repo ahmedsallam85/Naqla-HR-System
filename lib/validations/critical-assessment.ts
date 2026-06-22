@@ -12,6 +12,7 @@ export const assessmentInputSchema = z.object({
 });
 
 export const successProfileSchema = z.object({
+  position: z.string().trim().optional(),
   incumbent: z.string().trim().optional(),
   year: z.string().trim().optional(),
   location: z.string().trim().optional(),

@@ -168,6 +168,7 @@ model SuccessProfile {
   designationId String
   designation   Designation @relation(fields: [designationId], references: [id], onDelete: Cascade)
 
+  position  String? // Succession Position -- the target role, may differ from the Designation's own title
   incumbent String?
   year      String?
   location  String?

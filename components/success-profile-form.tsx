@@ -44,6 +44,7 @@ const LEADERSHIP_FIELDS = [
 ];
 
 type ProfileData = {
+  position?: string | null;
   incumbent?: string | null;
   year?: string | null;
   location?: string | null;
@@ -62,6 +63,7 @@ export function SuccessProfileForm({
   initial: ProfileData | null;
 }) {
   const router = useRouter();
+  const [position, setPosition] = useState(initial?.position ?? "");
   const [incumbent, setIncumbent] = useState(initial?.incumbent ?? "");
   const [year, setYear] = useState(initial?.year ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
@@ -80,6 +82,7 @@ export function SuccessProfileForm({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        position,
         incumbent,
         year,
         location,
@@ -112,7 +115,16 @@ export function SuccessProfileForm({
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-2">
-            <Label htmlFor="incumbent">Incumbent</Label>
+            <Label htmlFor="position">Succession position</Label>
+            <Input
+              id="position"
+              value={position}
+              onChange={(e) => setPosition(e.target.value)}
+              placeholder="Target role, if different from this designation"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="incumbent">Current incumbent</Label>
             <Input id="incumbent" value={incumbent} onChange={(e) => setIncumbent(e.target.value)} />
           </div>
           <div className="space-y-2">
