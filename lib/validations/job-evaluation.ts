@@ -19,5 +19,6 @@ export const jobEvaluationInputSchema = z.object({
   accFta: z.string().min(1, "Freedom to Act is required"),
   accMag: z.string().min(1, "Magnitude is required"),
   accType: z.string().min(1, "Accountability Type is required"),
+  accFt: z.string(),
   notes: z.string().trim().optional(),
 });

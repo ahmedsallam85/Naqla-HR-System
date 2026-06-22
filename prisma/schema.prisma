@@ -103,6 +103,7 @@ model JobEvaluation {
   accFta  String
   accMag  String
   accType String
+  accFt   String @default("")
 
   // Computed results
   khPoints    Int

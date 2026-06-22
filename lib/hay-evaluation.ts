@@ -105,33 +105,36 @@ export const PS_FT: OffsetOption[] = [
   { code: "+", offset: 1, label: "Plus" },
 ];
 
+// Labels per JE-HANDOUT-03 page 19-21.
 export const ACC_FTA: IndexedOption[] = [
-  { code: "A", index: 0, label: "Closely Controlled" },
+  { code: "A", index: 0, label: "Prescribed" },
   { code: "B", index: 1, label: "Controlled" },
   { code: "C", index: 2, label: "Standardised" },
-  { code: "D", index: 3, label: "Generally Regulated" },
-  { code: "E", index: 4, label: "Clearly Directed" },
+  { code: "D", index: 3, label: "Regulated" },
+  { code: "E", index: 4, label: "Directed" },
   { code: "F", index: 5, label: "Generally Directed" },
   { code: "G", index: 6, label: "Guided" },
-  { code: "H", index: 7, label: "Strategically Guided" },
+  { code: "H", index: 7, label: "Strategic Guidance" },
 ];
 
 export const ACC_MAG: IndexedOption[] = [
-  { code: "N", index: 0, label: "Non-Quantifiable" },
-  { code: "1", index: 1, label: "Very Small" },
-  { code: "2", index: 2, label: "Small" },
-  { code: "3", index: 3, label: "Medium" },
-  { code: "4", index: 4, label: "Large" },
-  { code: "5", index: 5, label: "Very Large" },
+  { code: "N", index: 0, label: "Financially Indeterminate" },
+  { code: "1", index: 1, label: "US$ 70K - 700K" },
+  { code: "2", index: 2, label: "US$ 700K - 7M" },
+  { code: "3", index: 3, label: "US$ 7M - 70M" },
+  { code: "4", index: 4, label: "US$ 70M - 700M" },
+  { code: "5", index: 5, label: "US$ 700M - 7B" },
 ];
 
+// Impact type when Magnitude is financially indeterminate (page 23).
 export const ACC_TYPE_N: IndexedOption[] = [
-  { code: "I", index: 0, label: "Indirect" },
-  { code: "II", index: 1, label: "Contributory" },
-  { code: "III", index: 2, label: "Shared" },
-  { code: "IV", index: 3, label: "Primary" },
+  { code: "A", index: 0, label: "Nominal" },
+  { code: "B", index: 1, label: "Moderate" },
+  { code: "C", index: 2, label: "Major" },
+  { code: "D", index: 3, label: "Critical" },
 ];
 
+// Impact type when Magnitude is financially determinate (page 24).
 export const ACC_TYPE_Q: IndexedOption[] = [
   { code: "R", index: 0, label: "Remote" },
   { code: "C", index: 1, label: "Contributory" },
@@ -139,8 +142,13 @@ export const ACC_TYPE_Q: IndexedOption[] = [
   { code: "P", index: 3, label: "Prime" },
 ];
 
-const ACC_S = [
-  10, 14, 19, 25, 33, 43, 57, 76, 100, 132, 175, 230, 304, 400, 528, 700,
+// Fine-tuning step, shared across the three sub-factors (the manual shows
+// FTA+, Magnitude-, and Type+/- all as interchangeable ways of nudging the
+// result by one step -- "E 4 C+ = E 4 S-").
+export const ACC_FT: OffsetOption[] = [
+  { code: "-", offset: -1, label: "Minus" },
+  { code: "", offset: 0, label: "Standard" },
+  { code: "+", offset: 1, label: "Plus" },
 ];
 
 export type HayLevelBand = { level: string; min: number; max: number };
@@ -264,16 +272,11 @@ const PS_COLOR: Validity[][] = [
   ["blue", "blue", "blue", "yellow", "white"],
 ];
 
-const ACC_COLOR: Validity[][] = [
-  ["white", "white", "yellow", "blue"],
-  ["white", "white", "white", "yellow"],
-  ["white", "white", "white", "white"],
-  ["white", "white", "white", "white"],
-  ["yellow", "white", "white", "white"],
-  ["yellow", "white", "white", "white"],
-  ["blue", "yellow", "white", "white"],
-  ["blue", "yellow", "white", "white"],
-];
+// Accountability has no validity-color system in the real Hay material --
+// the official guide chart (JE-HANDOUT-01) is a plain themed lookup table
+// with no Likely/Less likely/Improbable legend, unlike Know-How and
+// Problem-Solving which both have one. getAccValidity always returns null;
+// there is deliberately no ACC_COLOR matrix to avoid shipping invented data.
 
 function find<T extends CodeOption>(options: T[], code: string | undefined): T | undefined {
   return options.find((o) => o.code === code);
@@ -360,37 +363,35 @@ export function getPsValidity(psTe: string | undefined, psTc: string | undefined
   return PS_COLOR[te.index][tc.index];
 }
 
+// Anchor and per-step weights solved from JE-HANDOUT-03's worked examples and
+// cross-checked three independent ways against the official guide chart
+// (JE-HANDOUT-01): FTA steps 3 SEQ positions per letter, Magnitude 2 per
+// level, Impact-type 2 per letter (R/A=0, C/B=2, S/C=4, P/D=6) -- confirmed
+// against "Freedom to Act D, Magnitude 2, Type C -> 76" and "E 4 C+ = E 4 S-
+// = 230" (the fine-tune step is interchangeable across all three axes).
+const ACC_ANCHOR = 6;
+
 export function getAccPoints(
   accFta: string | undefined,
   accMag: string | undefined,
-  accType: string | undefined
+  accType: string | undefined,
+  accFt?: string
 ): number | null {
   const fta = find(ACC_FTA, accFta);
   const mag = find(ACC_MAG, accMag);
   const type = find(getAccTypeOptions(accMag), accType);
-  if (!fta || !mag || !type) return null;
-  const idx = Math.min(Math.max(fta.index + mag.index + type.index, 0), ACC_S.length - 1);
-  return ACC_S[idx];
+  const ft = find(ACC_FT, accFt ?? "");
+  if (!fta || !mag || !type || !ft) return null;
+
+  const idx = fta.index * 3 + mag.index * 2 + type.index * 2 + ft.offset + ACC_ANCHOR;
+  const clamped = Math.min(Math.max(idx, 0), SEQ.length - 1);
+  return SEQ[clamped];
 }
 
-export function getAccValidity(
-  accFta: string | undefined,
-  accType: string | undefined
-): Validity | null {
-  const fta = find(ACC_FTA, accFta);
-  if (!fta || !accType) return null;
-  // Type index is consistent across both N and Q variants (0-3).
-  const typeIndex = ["I", "R"].includes(accType)
-    ? 0
-    : ["II", "C"].includes(accType)
-      ? 1
-      : ["III", "S"].includes(accType)
-        ? 2
-        : ["IV", "P"].includes(accType)
-          ? 3
-          : null;
-  if (typeIndex == null) return null;
-  return ACC_COLOR[fta.index][typeIndex];
+// There is no validity-color system for Accountability in the real Hay
+// material -- see the note above ACC_FT.
+export function getAccValidity(): Validity | null {
+  return null;
 }
 
 export function getHayLevel(totalPoints: number): string | null {

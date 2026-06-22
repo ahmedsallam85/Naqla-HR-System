@@ -26,6 +26,7 @@ import {
   PS_FT,
   ACC_FTA,
   ACC_MAG,
+  ACC_FT,
   getAccTypeOptions,
   getKhPoints,
   getKhNotation,
@@ -33,7 +34,6 @@ import {
   getPsPoints,
   getPsValidity,
   getAccPoints,
-  getAccValidity,
   getHayLevel,
   type Validity,
   type CodeOption,
@@ -106,6 +106,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
   const [accFta, setAccFta] = useState("");
   const [accMag, setAccMag] = useState("");
   const [accType, setAccType] = useState("");
+  const [accFt, setAccFt] = useState(STANDARD);
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -125,8 +126,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
   const psValidity = getPsValidity(psTe || undefined, psTc || undefined);
 
   const accTypeOptions = getAccTypeOptions(accMag || undefined);
-  const accPoints = getAccPoints(accFta, accMag, accType);
-  const accValidity = getAccValidity(accFta || undefined, accType || undefined);
+  const accPoints = getAccPoints(accFta, accMag, accType, toCode(accFt));
 
   const totalPoints =
     khPoints != null && psPoints != null && accPoints != null
@@ -159,6 +159,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
         accFta,
         accMag,
         accType,
+        accFt: toCode(accFt),
         notes: notes || undefined,
       }),
     });
@@ -219,14 +220,14 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
           <CardTitle className="text-base">Accountability</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <CodeSelect id="accFta" label="Freedom to act" options={ACC_FTA} value={accFta} onChange={setAccFta} />
             <CodeSelect id="accMag" label="Magnitude" options={ACC_MAG} value={accMag} onChange={handleMagChange} />
-            <CodeSelect id="accType" label="Accountability type" options={accTypeOptions} value={accType} onChange={setAccType} />
+            <CodeSelect id="accType" label="Impact type" options={accTypeOptions} value={accType} onChange={setAccType} />
+            <CodeSelect id="accFt" label="Fine-tuning" options={ACC_FT} value={accFt} onChange={setAccFt} />
           </div>
           <div className="flex flex-wrap items-center gap-3 rounded-md bg-muted p-3 text-sm">
             <span className="font-semibold">{accPoints ?? "—"} points</span>
-            <ValidityBadge validity={accValidity} />
           </div>
         </CardContent>
       </Card>

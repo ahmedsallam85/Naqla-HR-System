@@ -13,6 +13,7 @@ import {
   PS_FT,
   ACC_FTA,
   ACC_MAG,
+  ACC_FT,
   getAccTypeOptions,
   getKhPoints,
   getKhNotation,
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   if (!codeExists(ACC_FTA, input.accFta)) invalid.push("accFta");
   if (!codeExists(ACC_MAG, input.accMag)) invalid.push("accMag");
   if (!codeExists(getAccTypeOptions(input.accMag), input.accType)) invalid.push("accType");
+  if (!codeExists(ACC_FT, input.accFt)) invalid.push("accFt");
   if (invalid.length > 0) {
     return NextResponse.json(
       { error: `Invalid selection for: ${invalid.join(", ")}` },
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const khPoints = getKhPoints(input);
   const psPoints = getPsPoints(khPoints, input.psTe, input.psTc, input.psFt);
-  const accPoints = getAccPoints(input.accFta, input.accMag, input.accType);
+  const accPoints = getAccPoints(input.accFta, input.accMag, input.accType, input.accFt);
 
   if (khPoints == null || psPoints == null || accPoints == null) {
     return NextResponse.json({ error: "Could not compute evaluation from the given inputs" }, { status: 400 });
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       accFta: input.accFta,
       accMag: input.accMag,
       accType: input.accType,
+      accFt: input.accFt,
       khPoints,
       psPoints,
       accPoints,
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       khNotation: getKhNotation(input),
       khValidity: getKhValidity(input.khTech, input.khMgmt, input.khHr),
       psValidity: getPsValidity(input.psTe, input.psTc),
-      accValidity: getAccValidity(input.accFta, input.accType),
+      accValidity: getAccValidity(),
       notes: input.notes,
       evaluatorId: session?.user?.id,
     },
