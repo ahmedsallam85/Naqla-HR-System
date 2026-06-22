@@ -97,7 +97,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       totalPoints,
       hayLevel,
       khNotation: getKhNotation(input),
-      khValidity: getKhValidity(input.khMgmt, input.khHr),
+      khValidity: getKhValidity(input.khTech, input.khMgmt, input.khHr),
       psValidity: getPsValidity(input.psTe, input.psTc),
       accValidity: getAccValidity(input.accFta, input.accType),
       notes: input.notes,

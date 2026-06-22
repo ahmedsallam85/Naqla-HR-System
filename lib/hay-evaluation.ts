@@ -1,24 +1,26 @@
-// Hay job evaluation engine, ported from the standalone hay-job-evaluation.html
-// tool (see HAY-TOOL-CONTINUATION.md). Formulas and lookup tables are verified;
-// the KH_COLOR/PS_COLOR/ACC_COLOR validity matrices are explicitly marked as
-// placeholders pending correction against the source Hay guide charts.
+// Hay job evaluation engine. Formulas verified against the official Hay
+// Group calculation manual (JE-HANDOUT-03 / reference-assets/). KH and PS
+// validity colors were read from the official guide chart images
+// (JE-HANDOUT-01); ACC's validity is still a placeholder -- the real
+// Accountability chart doesn't show a Likely/Less likely/Improbable system
+// at all, unlike KH and PS.
 
 export type CodeOption = { code: string; label: string };
-type TechOption = CodeOption & { base: number };
+type TechOption = CodeOption & { base: number; index: number };
 type OffsetOption = CodeOption & { offset: number };
 type IndexedOption = CodeOption & { index: number };
 
 // Bases shifted +15 vs. the original tool so they index directly into the
 // extended master sequence (SEQ) shared with Problem-Solving below.
 export const KH_TECH: TechOption[] = [
-  { code: "A", base: 17, label: "Primary" },
-  { code: "B", base: 19, label: "Elementary Vocational" },
-  { code: "C", base: 21, label: "Vocational" },
-  { code: "D", base: 23, label: "Advanced Vocational" },
-  { code: "E", base: 25, label: "Basic Professional" },
-  { code: "F", base: 27, label: "Seasoned Professional" },
-  { code: "G", base: 29, label: "Professional Mastery" },
-  { code: "H", base: 31, label: "Unique Authority" },
+  { code: "A", base: 17, index: 0, label: "Primary" },
+  { code: "B", base: 19, index: 1, label: "Elementary Vocational" },
+  { code: "C", base: 21, index: 2, label: "Vocational" },
+  { code: "D", base: 23, index: 3, label: "Advanced Vocational" },
+  { code: "E", base: 25, index: 4, label: "Basic Professional" },
+  { code: "F", base: 27, index: 5, label: "Seasoned Professional" },
+  { code: "G", base: 29, index: 6, label: "Professional Mastery" },
+  { code: "H", base: 31, index: 7, label: "Unique Authority" },
 ];
 
 export const KH_FT: OffsetOption[] = [
@@ -170,16 +172,83 @@ export const HAY_LEVEL_BANDS: HayLevelBand[] = [
   { level: "Hay 27", min: 2676, max: Infinity },
 ];
 
-// Validity banners (white/yellow/blue). PLACEHOLDER LOGIC — pending correction
-// against the actual Hay guide chart PDFs (see HAY-TOOL-CONTINUATION.md).
+// Validity banners (white/yellow/blue).
 export type Validity = "white" | "yellow" | "blue";
 
-const KH_COLOR: Validity[][] = [
-  ["white", "yellow", "blue"], // T
-  ["white", "white", "yellow"], // I
-  ["white", "white", "white"], // II
-  ["yellow", "white", "white"], // III
-  ["blue", "yellow", "white"], // IV
+// [techIndex (A-H)][mgmtIndex (T-IV)][hrIndex (1-3)], read from the official
+// guide chart's Likely/Less likely/Improbable shading. Validity does not vary
+// across the 3 technical fine-tuning sub-rows within a lettered band (verified
+// directly against the chart for rows A and B), only across the letter itself
+// -- this is a real finding from the source chart, not the same shape as the
+// old 2D placeholder. Rows A-D were cross-checked multiple times and are high
+// confidence; rows E-H, especially H, were harder to read precisely off the
+// chart image and are best-effort -- worth spot-checking against the source
+// PDF at full resolution if a flagged combination looks wrong in practice.
+const KH_COLOR: Validity[][][] = [
+  // A. Primary
+  [
+    ["white", "yellow", "yellow"], // T
+    ["blue", "blue", "blue"], // I
+    ["blue", "blue", "blue"], // II
+    ["blue", "blue", "blue"], // III
+    ["blue", "blue", "blue"], // IV
+  ],
+  // B. Elementary Vocational
+  [
+    ["white", "white", "yellow"],
+    ["blue", "blue", "yellow"],
+    ["blue", "blue", "blue"],
+    ["blue", "blue", "blue"],
+    ["blue", "blue", "blue"],
+  ],
+  // C. Vocational
+  [
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+  ],
+  // D. Advanced Vocational
+  [
+    ["yellow", "white", "white"],
+    ["white", "yellow", "white"],
+    ["white", "yellow", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+  ],
+  // E. Basic Professional
+  [
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+    ["yellow", "white", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+  ],
+  // F. Seasoned Professional
+  [
+    ["blue", "white", "white"],
+    ["white", "white", "white"],
+    ["white", "white", "white"],
+    ["yellow", "white", "yellow"],
+    ["white", "yellow", "white"],
+  ],
+  // G. Professional Mastery
+  [
+    ["blue", "blue", "white"],
+    ["white", "white", "yellow"],
+    ["yellow", "white", "white"],
+    ["white", "yellow", "white"],
+    ["white", "white", "white"],
+  ],
+  // H. Unique Authority
+  [
+    ["blue", "blue", "blue"],
+    ["yellow", "white", "yellow"],
+    ["white", "yellow", "white"],
+    ["white", "white", "yellow"],
+    ["yellow", "white", "white"],
+  ],
 ];
 
 // Read from the official guide chart's Likely/Less likely/Improbable
@@ -239,11 +308,16 @@ export function getKhNotation(input: KhInput): string {
   return `${input.khTech ?? ""}${input.khFt ?? ""} / ${input.khMgmt ?? ""}${input.khMgmtFt ?? ""} / ${input.khHr ?? ""}`;
 }
 
-export function getKhValidity(khMgmt: string | undefined, khHr: string | undefined): Validity | null {
+export function getKhValidity(
+  khTech: string | undefined,
+  khMgmt: string | undefined,
+  khHr: string | undefined
+): Validity | null {
+  const tech = find(KH_TECH, khTech);
   const mgmt = find(KH_MGMT, khMgmt);
   const hr = find(KH_HR, khHr);
-  if (!mgmt || !hr) return null;
-  return KH_COLOR[mgmt.index][hr.index];
+  if (!tech || !mgmt || !hr) return null;
+  return KH_COLOR[tech.index][mgmt.index][hr.index];
 }
 
 export function getPsPercent(

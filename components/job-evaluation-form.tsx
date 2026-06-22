@@ -118,7 +118,7 @@ export function JobEvaluationForm({ jobRoleId }: { jobRoleId: string }) {
   };
 
   const khPoints = getKhPoints(khInput);
-  const khValidity = getKhValidity(khMgmt || undefined, khHr || undefined);
+  const khValidity = getKhValidity(khTech || undefined, khMgmt || undefined, khHr || undefined);
   const khNotation = getKhNotation(khInput);
 
   const psPoints = getPsPoints(khPoints, psTe, psTc, toCode(psFt));
