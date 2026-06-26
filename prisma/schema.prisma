@@ -25,6 +25,8 @@ model User {
   employee            Employee?            @relation("UserEmployee")
   jobEvaluations      JobEvaluation[]
   criticalAssessments CriticalAssessment[]
+  compensationRecords CompensationRecord[]
+  bankTransferExports BankTransferExport[]
   createdAt           DateTime             @default(now())
 }
 
@@ -133,7 +135,7 @@ enum CriticalPriority {
 }
 
 model Designation {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   title      String
   grade      String?
   holderName String?
@@ -177,7 +179,7 @@ model SuccessProfile {
   urgency   Int? // 1-5
 
   // { edu, exp1, exp2, exp3, know, sk1-4, duty1-5 }
-  criteria Json?
+  criteria   Json?
   // { leadCur, leadFut, coreCur, coreFut, ei, otherCur, otherFut }
   leadership Json?
 
@@ -185,74 +187,191 @@ model SuccessProfile {
   updatedAt DateTime @updatedAt
 }
 
+enum CompensationCalcMethod {
+  STANDARD // input = gross salary, system computes net/insurance/tax
+  REVERSE // input = agreed net basic + allowances, system solves for gross
+}
+
+enum DeductionType {
+  PREMIUM_CARD
+  MONEY_FELLOWS
+  STORE_INSTALLMENT
+  SALARY_ADVANCE_INSTALLMENT
+  PENALTY
+}
+
+enum DeductionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum AdditionType {
+  SIGN_ON_BONUS
+  PERFORMANCE_BONUS
+  SALARY_ADVANCE
+}
+
+// Versioned history per employee, same pattern as JobEvaluation: every save
+// inserts a new row, "current" = latest createdAt per employeeId.
+model CompensationRecord {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  jobLevel   String? // snapshot of Employee.jobLevel at entry time
+  compaRatio Float? // manual entry -- no grade-to-bracket mapping exists yet to auto-derive it
+
+  calcMethod CompensationCalcMethod
+
+  agreedNetBasicSalary Float
+  agreedNetAllowances  Float @default(0)
+  totalAgreedNetSalary Float // computed: basic + allowances
+
+  socialInsuredSalary          Float
+  socialInsuranceEmployeeShare Float
+  socialInsuranceCompanyShare  Float
+  grossSalary                  Float
+  salaryTaxAnnual              Float
+  salaryTaxMonthly             Float
+  martyrFundDeduction          Float
+
+  lastCommissionReceivedAmount Float?
+  notes                        String?
+
+  enteredById String?
+  enteredBy   User?   @relation(fields: [enteredById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+// Covers all 5 deduction types with one shape; installment fields are
+// nullable for flat/recurring ones (Premium Card, Money Fellows, Penalty).
+model CompensationDeduction {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type DeductionType
+
+  totalAmount     Float? // only meaningful for installment-based types
+  numInstallments Int?
+  monthlyAmount   Float // actual amount deducted each run
+  startDate       DateTime
+  endDate         DateTime? // null = ongoing / until totalAmount paid off
+  status          DeductionStatus @default(ACTIVE)
+  notes           String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+// One-off entries: sign-on bonus, performance bonus, salary advance given.
+model CompensationAddition {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type   AdditionType
+  amount Float
+  date   DateTime
+  notes  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+// Audit log only -- not the file itself. The file is generated on demand
+// and streamed to the browser; this row records that it happened.
+model BankTransferExport {
+  id            String @id @default(cuid())
+  periodMonth   Int
+  periodYear    Int
+  employeeCount Int
+  totalAmount   Float
+
+  generatedById String?
+  generatedBy   User?   @relation(fields: [generatedById], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
 model Employee {
-  id          String  @id @default(cuid())
+  id           String @id @default(cuid())
   employeeCode String @unique
 
   // Identity
-  firstName String
-  lastName  String
-  fullName  String
-  photoUrl  String?
-  businessEmail String @unique
+  firstName     String
+  lastName      String
+  fullName      String
+  photoUrl      String?
+  businessEmail String  @unique
   personalEmail String?
 
   // Org placement
-  workLocation  String?
-  businessUnit  String?
-  designation   String?
-  division      String?
-  function      String?
-  functionType  String?
-  vertical      String?
-  jobLocation   String?
-  department    String?
+  workLocation    String?
+  businessUnit    String?
+  designation     String?
+  division        String?
+  function        String?
+  functionType    String?
+  vertical        String?
+  jobLocation     String?
+  department      String?
   systemAuthority String?
 
   // Employment
-  contractType         ContractType?
-  contractRenewalDate  DateTime?
-  status               EmploymentStatus @default(ACTIVE)
-  sourceOfHiring       String?
-  dateOfJoining        DateTime?
-  dateOfExit           DateTime?
-  reportingManagerId   String?
-  reportingManager     Employee?  @relation("ManagerSubordinates", fields: [reportingManagerId], references: [id])
-  subordinates         Employee[] @relation("ManagerSubordinates")
+  contractType        ContractType?
+  contractRenewalDate DateTime?
+  status              EmploymentStatus @default(ACTIVE)
+  sourceOfHiring      String?
+  dateOfJoining       DateTime?
+  dateOfExit          DateTime?
+  reportingManagerId  String?
+  reportingManager    Employee?        @relation("ManagerSubordinates", fields: [reportingManagerId], references: [id])
+  subordinates        Employee[]       @relation("ManagerSubordinates")
 
   // Personal
-  dateOfBirth        DateTime?
-  gender             Gender?
-  maritalStatus      MaritalStatus?
-  workPhone          String?
-  personalPhone      String?
-  alternativePhone   String?
-  presentAddress     String?
-  idAddress          String?
-  socialInsuranceNumber String?
-  socialInsuranceStatus  String?
+  dateOfBirth                DateTime?
+  gender                     Gender?
+  maritalStatus              MaritalStatus?
+  workPhone                  String?
+  personalPhone              String?
+  alternativePhone           String?
+  presentAddress             String?
+  idAddress                  String?
+  socialInsuranceNumber      String?
+  socialInsuranceStatus      String?
   medicalInsurancePlan       String?
   medicalInsuranceExpiryDate DateTime?
-  bankAccountName    String?
-  bankAccountNumber  String?
-  idNumber           String?
-  idExpiryDate       DateTime?
+  bankAccountName            String?
+  bankAccountNumber          String?
+  idNumber                   String?
+  idExpiryDate               DateTime?
 
   // Career
-  jobLevel             String?
-  personalLevel        String?
-  lastPromotionDate    DateTime?
+  jobLevel                 String?
+  personalLevel            String?
+  lastPromotionDate        DateTime?
   previousTitleAtPromotion String?
-  lastTransferDate     DateTime?
-  previousTitleAtTransfer String?
-  probationScore       Float?
-  talentStatus         TalentStatus @default(NOT_ASSESSED)
+  lastTransferDate         DateTime?
+  previousTitleAtTransfer  String?
+  probationScore           Float?
+  talentStatus             TalentStatus @default(NOT_ASSESSED)
   lastTalentEvaluationDate DateTime?
 
-  user   User?  @relation("UserEmployee", fields: [userId], references: [id])
+  user   User?   @relation("UserEmployee", fields: [userId], references: [id])
   userId String? @unique
 
   designationsHeld Designation[] @relation("DesignationHolder")
+
+  compensationRecords    CompensationRecord[]
+  compensationDeductions CompensationDeduction[]
+  compensationAdditions  CompensationAddition[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

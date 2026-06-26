@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { label: "Personnel", href: "/personnel", enabled: true },
-  { label: "Job Grading", href: "/job-grading", enabled: true },
-  { label: "Critical Positions", href: "/critical-positions", enabled: true },
-  { label: "Compensation", href: "/compensation", enabled: false },
-  { label: "Recruitment", href: "/recruitment", enabled: false },
-  { label: "Onboarding", href: "/onboarding", enabled: false },
-  { label: "Performance", href: "/performance", enabled: false },
-  { label: "Talent", href: "/talent", enabled: false },
+  { label: "Personnel", href: "/personnel", enabled: true, adminOnly: false },
+  { label: "Job Grading", href: "/job-grading", enabled: true, adminOnly: false },
+  { label: "Critical Positions", href: "/critical-positions", enabled: true, adminOnly: false },
+  { label: "Compensation", href: "/compensation", enabled: true, adminOnly: true },
+  { label: "Recruitment", href: "/recruitment", enabled: false, adminOnly: false },
+  { label: "Onboarding", href: "/onboarding", enabled: false, adminOnly: false },
+  { label: "Performance", href: "/performance", enabled: false, adminOnly: false },
+  { label: "Talent", href: "/talent", enabled: false, adminOnly: false },
 ];
 
 export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
@@ -29,7 +29,7 @@ export function AppSidebar({ isAdmin }: { isAdmin: boolean }) {
         </p>
       </div>
       <nav className="flex flex-col gap-1 px-3">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
           const active = pathname.startsWith(item.href);
           if (!item.enabled) {
             return (
