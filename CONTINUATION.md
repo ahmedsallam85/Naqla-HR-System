@@ -1,6 +1,6 @@
 # NAQLA HR AI System — Continuation Notes
 
-Status snapshot as of 2026-06-19. Read this before picking the work back up.
+Status snapshot as of 2026-06-25. Read this before picking the work back up.
 
 ## Where things are
 
@@ -8,7 +8,9 @@ Status snapshot as of 2026-06-19. Read this before picking the work back up.
   - `People.docx` — the full functional spec this system is built from
   - `Naqla People & Culture.html` — branding export (dark `#211E1F` bg, pink `#F90D81` accent, Poppins/Figtree fonts, wordmark "naqla.")
   - `logos black_white.pdf`
-- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`.
+  - `HAY-TOOL-CONTINUATION.md` — source notes for the standalone Hay job-evaluation HTML tool that `lib/hay-evaluation.ts` was ported from
+  - `CPA-TOOL-CONTINUATION.md` — source notes for the standalone Critical Position Assessment HTML tool that the Critical Positions module was ported from
+- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`, currently both at the same commit (`bda5b83`).
 - Build plan that was approved for the original Phase 0/1 scaffold: `C:\Users\AhmedSallam\.claude\plans\glittery-forging-castle.md`.
 
 ## How to run it locally
@@ -30,9 +32,9 @@ Project `naqla-hr-system` on Railway (workspace: ahmedsallam85's Projects), two 
 | Branch | `staging` (auto-deploys on push) | `main` (auto-deploys on push) |
 | Postgres service | `Postgres` | `Postgres-Vts9` |
 | Login | `admin@naqla.com` / `ChangeMe123!` | `ahmed.sallam@naqlq.xyz` / (set directly by user, not in memory) |
-| Data | 4 fake demo employees | Empty — real data only |
+| Data | demo employees | Empty — real data only |
 
-**Day-to-day workflow**: just `git push origin staging` or `git push origin main` — Railway auto-builds and deploys. No manual `railway up` needed anymore (that was only used for the initial setup).
+**Day-to-day workflow**: just `git push origin staging` or `git push origin main` — Railway auto-builds and deploys. No manual `railway up` needed anymore (that was only used for the initial setup). Established promotion flow: build + verify on `staging` first, then `git checkout main && git merge staging && git push origin main`.
 
 **If you ever need to deploy manually** (e.g. CLI is misbehaving): `railway up --service web --environment <staging|production>` — but `cd` into the repo first in the *same* shell call, since Railway's project link is tied to cwd and this harness's shell resets cwd between separate tool calls.
 
@@ -48,21 +50,34 @@ Project `naqla-hr-system` on Railway (workspace: ahmedsallam85's Projects), two 
 - **"service" in Railway is a project-level entity shared across environments.** To deploy an existing service into a new environment, target it there (`railway up --service web --environment production`) rather than creating a same-named new one.
 - **Per-environment GitHub branch mapping must be set in the Railway dashboard, not the CLI.** `railway service source connect --branch X --environment Y` sets a *shared* service-level source — connecting staging after production silently overrode production's branch too (confirmed by testing). Fix: open the web service while viewing each environment specifically (environment switcher top-left) → Settings → Source → set the branch field there. Verified correct afterward by pushing distinct commits to each branch and confirming only the matching environment redeployed.
 - `package.json`: `build` = `prisma generate && next build`, `start` = `prisma migrate deploy && next start` (migrations run automatically every container start), `postinstall` = `prisma generate`. `prisma` package must be in `dependencies`, not `devDependencies` (needed at runtime).
+- **optional enum form fields need an `optionalEnum` zod helper** (`lib/validations/employee.ts`) — plain `z.enum([...]).optional()` doesn't treat `""` as unset, which broke Excel import for blank gender/maritalStatus/contractType/talentStatus cells. The literal array passed to it needs `as const` or the union type widens to `string` and breaks Prisma's generated types downstream.
+- **Job Grading and Critical Positions are both ports of standalone single-file HTML tools** the user already had (`reference-assets/HAY-TOOL-CONTINUATION.md`, `reference-assets/CPA-TOOL-CONTINUATION.md`) — when extending either module, check the source notes first since they document the original scoring methodology and what was deliberately left out of the port.
 
-## Not yet built (next phases, in spec order)
+## What's built
+
+- **Personnel** — full Employee schema, role-gated CRUD API at `/api/employees`, list/detail/create/edit UI.
+- **Admin-managed dropdown lists** (`/admin/lookups`, HR_ADMIN only) — generic `LookupValue` table backs Employee org-placement fields instead of free text. Field metadata in `lib/employee-fields.ts`.
+- **Bulk Excel import/export** (Personnel toolbar) — `lib/excel-template.ts` (exceljs), matches existing rows by Employee Code/Business Email, creates the rest, auto-adds new lookup values, reports per-row errors without blocking the file.
+- **Job Grading** (`/job-grading`) — Hay methodology evaluation calculator (`lib/hay-evaluation.ts`), verified against the source tool's documented test cases. `JobRole` + `JobEvaluation` models persist history. Know-How/Problem-Solving/Accountability validity-color matrices and calculations have been corrected against the official Hay guide-chart manual (commits `f70f946`, `cb448fe`, `c729c16`). **No Naqla-grade/compensation-bracket mapping yet** — deliberately deferred (no fake financial data), current scope is Hay points/level only.
+- **Critical Positions / Succession Planning** (`/critical-positions`) — `Designation` master list (Excel import/export, optionally linked to a real Personnel record as holder), 13-question Likert `CriticalAssessment` (5 sections, 0-65, Imperative/Important/Discretionary/Not Urgent priority bands) with full history per position, and a `SuccessProfile` form per position (SIGMA-template-style: Succession Position, incumbent, eligibility year, urgency, criteria, leadership). First-pass port from a standalone HTML tool — **known gaps**: the source tool's Results-tab bar-chart dashboard and its 3-sheet Excel export (Question Reference / Scoring Guide sheets) were not carried over. Also, the 13 question texts were written to match each section's stated purpose rather than transcribed verbatim from a source that only specified section names/weights/thresholds — flagged for HR to review/refine.
+
+## Not yet built (remaining phases)
 
 Per `reference-assets/People.docx` ([[project-hr-system-spec]] in Claude's memory):
 
-1. **Org Structure & Grading** — Hay-theory-based AI job grading engine, grade → compensation bracket mapping.
-2. **Compensation** — comp records, deductions/additions, automated bank transfer file generation.
-3. **Recruitment** — requisition workflow, AI CV screening/sourcing, interview pipeline, AI-drafted offer letters, email automation, Zoho Recruit integration.
-4. **Onboarding** — session assignment, onboarding video auto-send, calendar invites, handbook/welcome emails, completion notifications.
-5. **Performance Management** — monthly scorecard (MSC) cycle, probation-evaluation notifications at day 75/80.
-6. **Talent Management** — 9-box grid assessments, 6-month talent-mapping notifications.
-7. **HR chatbot** — Claude-API-backed assistant over company policy docs.
+1. **Compensation** — comp records, deductions/additions, automated bank transfer file generation. Depends on Job Grading's grade → compensation bracket mapping, which doesn't exist yet either.
+2. **Recruitment** — requisition workflow, AI CV screening/sourcing, interview pipeline, AI-drafted offer letters, email automation, Zoho Recruit integration.
+3. **Onboarding** — session assignment, onboarding video auto-send, calendar invites, handbook/welcome emails, completion notifications.
+4. **Performance Management** — monthly scorecard (MSC) cycle, probation-evaluation notifications at day 75/80.
+5. **Talent Management (9-box grid)** — the spec's 9-box performance×potential grid assessment is still separate from the Critical Positions/succession work above; not started.
+6. **HR chatbot** — Claude-API-backed assistant over company policy docs.
+
+Smaller known gaps inside already-shipped modules:
+- Critical Positions: Results dashboard (bar chart) + full 3-sheet Excel export, 13-question wording review with HR.
+- Job Grading: grade → compensation bracket mapping.
 
 Email/calendar integration is intentionally stubbed/out-of-scope until a module actually needs it (Onboarding is the first).
 
 ## Suggested next step
 
-Plan and build the **Org Structure & Grading** module next, since Recruitment and Compensation both depend on a job's Hay grade existing first.
+Closest open thread is finishing the Critical Positions first pass (Results dashboard + full Excel export) since it's small and self-contained. The next big phase per spec order is **Compensation**, but that depends on Job Grading's grade→bracket mapping being designed first — worth a short planning pass with the user before coding, since it touches real salary data policy.
