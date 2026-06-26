@@ -1,6 +1,6 @@
 # NAQLA HR AI System — Continuation Notes
 
-Status snapshot as of 2026-06-25. Read this before picking the work back up.
+Status snapshot as of 2026-06-26. Read this before picking the work back up.
 
 ## Where things are
 
@@ -10,7 +10,8 @@ Status snapshot as of 2026-06-25. Read this before picking the work back up.
   - `logos black_white.pdf`
   - `HAY-TOOL-CONTINUATION.md` — source notes for the standalone Hay job-evaluation HTML tool that `lib/hay-evaluation.ts` was ported from
   - `CPA-TOOL-CONTINUATION.md` — source notes for the standalone Critical Position Assessment HTML tool that the Critical Positions module was ported from
-- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`, currently both at the same commit (`bda5b83`).
+- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`. `staging` is currently ahead of `main` by the Compensation module (commit `eba0e10`) — not yet promoted.
+- A separate, already-built sister project owned by the same user — **`hr-payroll-saas`** (Python/Flask, repo `Sallam10/hr-payroll-saas`, local copy at `C:\Users\AhmedSallam\OneDrive - NAQLA Trucking\Desktop\HR AI System\Payroll\hr-payroll-saas-main\`) — has a verified Egyptian payroll tax engine (`modules/tax_engine.py`) and full payroll schema (salary records, benefits, debts/installments, payroll runs). It was used as reference/source material for this repo's Compensation module (ported, not called into at runtime — this app stays single-stack TypeScript). Worth checking again if a future module (e.g. Recruitment's offer-letter compa-ratio logic) needs payroll-adjacent calculations.
 - Build plan that was approved for the original Phase 0/1 scaffold: `C:\Users\AhmedSallam\.claude\plans\glittery-forging-castle.md`.
 
 ## How to run it locally
@@ -52,6 +53,8 @@ Project `naqla-hr-system` on Railway (workspace: ahmedsallam85's Projects), two 
 - `package.json`: `build` = `prisma generate && next build`, `start` = `prisma migrate deploy && next start` (migrations run automatically every container start), `postinstall` = `prisma generate`. `prisma` package must be in `dependencies`, not `devDependencies` (needed at runtime).
 - **optional enum form fields need an `optionalEnum` zod helper** (`lib/validations/employee.ts`) — plain `z.enum([...]).optional()` doesn't treat `""` as unset, which broke Excel import for blank gender/maritalStatus/contractType/talentStatus cells. The literal array passed to it needs `as const` or the union type widens to `string` and breaks Prisma's generated types downstream.
 - **Job Grading and Critical Positions are both ports of standalone single-file HTML tools** the user already had (`reference-assets/HAY-TOOL-CONTINUATION.md`, `reference-assets/CPA-TOOL-CONTINUATION.md`) — when extending either module, check the source notes first since they document the original scoring methodology and what was deliberately left out of the port.
+- **Local dev's `DATABASE_URL` points at the live staging Postgres DB, not a throwaway local one.** Manual smoke-testing through the UI (or any one-off script) writes real rows there. After any such test, clean up with a temp script using `prisma` from `lib/prisma.ts` (run via `npx tsx` after sourcing `.env` into the shell — plain `npx tsx` doesn't auto-load `.env` the way Next.js does) — don't leave test rows sitting in staging.
+- **Running a one-off Prisma script outside Next.js**: `npx tsx some-script.ts` only resolves `node_modules` (and loads `.env`) correctly if the script physically lives inside the project tree — a script in a temp/scratch directory outside the repo can't resolve `@/lib/prisma` or its dependencies even with absolute imports. Write the throwaway script into the repo root, run it, then delete it.
 
 ## What's built
 
@@ -60,24 +63,25 @@ Project `naqla-hr-system` on Railway (workspace: ahmedsallam85's Projects), two 
 - **Bulk Excel import/export** (Personnel toolbar) — `lib/excel-template.ts` (exceljs), matches existing rows by Employee Code/Business Email, creates the rest, auto-adds new lookup values, reports per-row errors without blocking the file.
 - **Job Grading** (`/job-grading`) — Hay methodology evaluation calculator (`lib/hay-evaluation.ts`), verified against the source tool's documented test cases. `JobRole` + `JobEvaluation` models persist history. Know-How/Problem-Solving/Accountability validity-color matrices and calculations have been corrected against the official Hay guide-chart manual (commits `f70f946`, `cb448fe`, `c729c16`). **No Naqla-grade/compensation-bracket mapping yet** — deliberately deferred (no fake financial data), current scope is Hay points/level only.
 - **Critical Positions / Succession Planning** (`/critical-positions`) — `Designation` master list (Excel import/export, optionally linked to a real Personnel record as holder), 13-question Likert `CriticalAssessment` (5 sections, 0-65, Imperative/Important/Discretionary/Not Urgent priority bands) with full history per position, and a `SuccessProfile` form per position (SIGMA-template-style: Succession Position, incumbent, eligibility year, urgency, criteria, leadership). First-pass port from a standalone HTML tool — **known gaps**: the source tool's Results-tab bar-chart dashboard and its 3-sheet Excel export (Question Reference / Scoring Guide sheets) were not carried over. Also, the 13 question texts were written to match each section's stated purpose rather than transcribed verbatim from a source that only specified section names/weights/thresholds — flagged for HR to review/refine.
+- **Compensation** (`/compensation`, **HR_ADMIN only — shipped on `staging` only so far, not yet merged to `main`**) — Egyptian payroll tax engine ported to TypeScript (`lib/payroll-tax.ts`) from the sister `hr-payroll-saas` project's verified `tax_engine.py`, golden-value-tested to match exactly. `CompensationRecord` (versioned history per employee, Standard gross-in or Reverse net-in calc mode → derives social insurance employee/company share, gross salary, income tax, martyr fund), `CompensationDeduction` (Premium Card / Money Fellows / Store Installment / Salary Advance Installment / Penalty, with optional installment tracking), `CompensationAddition` (sign-on bonus / performance bonus / salary advance), and a bank-transfer Excel export (`lib/compensation-export.ts`) logged per run in `BankTransferExport` for audit. **Known gap**: bank file column layout is a generic placeholder — the spec says "based on criteria we will feed the system with" and that criteria hasn't been provided yet; adjust `lib/compensation-export.ts` once the real bank format is known. Compa ratio is a manual entry field — no Job Grading grade→bracket mapping exists yet to auto-derive it.
 
 ## Not yet built (remaining phases)
 
 Per `reference-assets/People.docx` ([[project-hr-system-spec]] in Claude's memory):
 
-1. **Compensation** — comp records, deductions/additions, automated bank transfer file generation. Depends on Job Grading's grade → compensation bracket mapping, which doesn't exist yet either.
-2. **Recruitment** — requisition workflow, AI CV screening/sourcing, interview pipeline, AI-drafted offer letters, email automation, Zoho Recruit integration.
-3. **Onboarding** — session assignment, onboarding video auto-send, calendar invites, handbook/welcome emails, completion notifications.
-4. **Performance Management** — monthly scorecard (MSC) cycle, probation-evaluation notifications at day 75/80.
-5. **Talent Management (9-box grid)** — the spec's 9-box performance×potential grid assessment is still separate from the Critical Positions/succession work above; not started.
-6. **HR chatbot** — Claude-API-backed assistant over company policy docs.
+1. **Recruitment** — requisition workflow, AI CV screening/sourcing, interview pipeline, AI-drafted offer letters, email automation, Zoho Recruit integration.
+2. **Onboarding** — session assignment, onboarding video auto-send, calendar invites, handbook/welcome emails, completion notifications.
+3. **Performance Management** — monthly scorecard (MSC) cycle, probation-evaluation notifications at day 75/80.
+4. **Talent Management (9-box grid)** — the spec's 9-box performance×potential grid assessment is still separate from the Critical Positions/succession work above; not started.
+5. **HR chatbot** — Claude-API-backed assistant over company policy docs.
 
 Smaller known gaps inside already-shipped modules:
 - Critical Positions: Results dashboard (bar chart) + full 3-sheet Excel export, 13-question wording review with HR.
-- Job Grading: grade → compensation bracket mapping.
+- Job Grading: grade → compensation bracket mapping (would let Compensation's compa ratio be auto-derived instead of manual).
+- Compensation: real bank-transfer file format (see above), needs promoting from `staging` to `main` once the user has verified it live on staging.
 
 Email/calendar integration is intentionally stubbed/out-of-scope until a module actually needs it (Onboarding is the first).
 
 ## Suggested next step
 
-Closest open thread is finishing the Critical Positions first pass (Results dashboard + full Excel export) since it's small and self-contained. The next big phase per spec order is **Compensation**, but that depends on Job Grading's grade→bracket mapping being designed first — worth a short planning pass with the user before coding, since it touches real salary data policy.
+Verify the Compensation module live on staging (https://web-staging-f27e.up.railway.app), then promote `staging` → `main` (`git checkout main && git merge staging && git push origin main`) once confirmed. After that, the next big phase per spec order is **Recruitment** — also worth a short planning pass first, since it touches AI CV screening and a Zoho Recruit integration decision.
