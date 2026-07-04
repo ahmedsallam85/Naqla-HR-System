@@ -40,7 +40,12 @@ export async function POST(req: NextRequest) {
 
   const data = parsed.data;
   const employeeCode = await nextEmployeeCode();
-  const fullName = `${data.firstName} ${data.lastName}`;
+  const fullName =
+    data.fullName ||
+    (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : "");
+  if (!fullName) {
+    return NextResponse.json({ error: "Full Name is required" }, { status: 400 });
+  }
 
   const existing = await prisma.employee.findUnique({
     where: { businessEmail: data.businessEmail },
@@ -53,6 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   const employee = await prisma.employee.create({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: {
       ...data,
       employeeCode,
@@ -63,10 +69,14 @@ export async function POST(req: NextRequest) {
       contractRenewalDate: data.contractRenewalDate
         ? new Date(data.contractRenewalDate)
         : undefined,
+      probationEndDate: data.probationEndDate ? new Date(data.probationEndDate) : undefined,
       medicalInsuranceExpiryDate: data.medicalInsuranceExpiryDate
         ? new Date(data.medicalInsuranceExpiryDate)
         : undefined,
       idExpiryDate: data.idExpiryDate ? new Date(data.idExpiryDate) : undefined,
+      lastPromotionTransferDate: data.lastPromotionTransferDate
+        ? new Date(data.lastPromotionTransferDate)
+        : undefined,
       lastPromotionDate: data.lastPromotionDate
         ? new Date(data.lastPromotionDate)
         : undefined,
@@ -77,7 +87,7 @@ export async function POST(req: NextRequest) {
         ? new Date(data.lastTalentEvaluationDate)
         : undefined,
       reportingManagerId: data.reportingManagerId || undefined,
-    },
+    } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   });
 
   return NextResponse.json(employee, { status: 201 });

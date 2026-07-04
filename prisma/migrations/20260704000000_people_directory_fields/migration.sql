@@ -1,0 +1,22 @@
+-- People Directory additions: new Employee fields matching the Employee Master Log Template
+ALTER TABLE "Employee"
+  ADD COLUMN "nationality"                TEXT,
+  ADD COLUMN "numberOfDependents"         INTEGER,
+  ADD COLUMN "emergencyContactName"       TEXT,
+  ADD COLUMN "emergencyContactRelationship" TEXT,
+  ADD COLUMN "emergencyContactPhone"      TEXT,
+  ADD COLUMN "probationEndDate"           TIMESTAMP(3),
+  ADD COLUMN "legalEntity"               TEXT,
+  ADD COLUMN "costCenter"                TEXT,
+  ADD COLUMN "lastPromotionTransferDate"  TIMESTAMP(3),
+  ADD COLUMN "previousDesignation"        TEXT,
+  ADD COLUMN "socialInsuranceSalary"      DOUBLE PRECISION,
+  ADD COLUMN "annualLeaveBalance"         DOUBLE PRECISION,
+  ADD COLUMN "sickLeaveTaken"             DOUBLE PRECISION,
+  ADD COLUMN "hajjLeaveUsed"             DOUBLE PRECISION,
+  ADD COLUMN "workPermitStatus"          TEXT,
+  ADD COLUMN "contractSigned"            BOOLEAN,
+  ADD COLUMN "laborLawCategory"          TEXT,
+  ADD COLUMN "reasonForLeaving"          TEXT,
+  ADD COLUMN "endOfServiceSettlement"    DOUBLE PRECISION,
+  ADD COLUMN "rehireEligible"            BOOLEAN;

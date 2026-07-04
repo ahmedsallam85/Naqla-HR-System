@@ -188,17 +188,13 @@ model SuccessProfile {
 }
 
 enum CompensationCalcMethod {
-  STANDARD // input = gross salary, system computes net/insurance/tax
-  REVERSE // input = agreed net basic + allowances, system solves for gross
+  STANDARD  // input = gross salary, system computes net/insurance/tax
+  REVERSE   // input = agreed net basic + allowances, system solves for gross
+  NET_BASED // input = agreed net salary; base = net/3 * factor; all extras taxable
 }
 
-enum DeductionType {
-  PREMIUM_CARD
-  MONEY_FELLOWS
-  STORE_INSTALLMENT
-  SALARY_ADVANCE_INSTALLMENT
-  PENALTY
-}
+// DeductionType enum removed — type is now a free-text String sourced from
+// LookupValue category COMPENSATION_DEDUCTION_TYPE (admin-configurable).
 
 enum DeductionStatus {
   ACTIVE
@@ -235,6 +231,7 @@ model CompensationRecord {
   salaryTaxAnnual              Float
   salaryTaxMonthly             Float
   martyrFundDeduction          Float
+  totalCostMonthly             Float? // NET_BASED only: total monthly burden on company
 
   lastCommissionReceivedAmount Float?
   notes                        String?
@@ -254,11 +251,12 @@ model CompensationDeduction {
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  type DeductionType
+  type String // sourced from LookupValue category COMPENSATION_DEDUCTION_TYPE
 
   totalAmount     Float? // only meaningful for installment-based types
   numInstallments Int?
-  monthlyAmount   Float // actual amount deducted each run
+  monthlyAmount   Float   // amount per period (label kept for backward compat)
+  frequency       String  @default("MONTHLY") // MONTHLY | QUARTERLY | SEMI_ANNUAL | ONE_TIME
   startDate       DateTime
   endDate         DateTime? // null = ongoing / until totalAmount paid off
   status          DeductionStatus @default(ACTIVE)
@@ -285,6 +283,25 @@ model CompensationAddition {
   @@index([employeeId])
 }
 
+// Recurring or one-time extras (allowances, bonuses, etc.) tracked per employee.
+// All extras are included in the tax pool under the NET_BASED calc method.
+model CompensationExtra {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type        String   // sourced from LookupValue category COMPENSATION_EXTRA_TYPE
+  amount      Float    // amount per period (monthly / quarterly / semi-annual)
+  frequency   String    // MONTHLY | QUARTERLY | SEMI_ANNUAL | ONE_TIME
+  date        DateTime  // effective / start date
+  endDate     DateTime? // end date — required for recurring, null for ONE_TIME
+  notes       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId])
+}
+
 // Audit log only -- not the file itself. The file is generated on demand
 // and streamed to the browser; this row records that it happened.
 model BankTransferExport {
@@ -305,8 +322,8 @@ model Employee {
   employeeCode String @unique
 
   // Identity
-  firstName     String
-  lastName      String
+  firstName     String?
+  lastName      String?
   fullName      String
   photoUrl      String?
   businessEmail String  @unique
@@ -353,7 +370,7 @@ model Employee {
   idNumber                   String?
   idExpiryDate               DateTime?
 
-  // Career
+  // Career (legacy — kept for historical data)
   jobLevel                 String?
   personalLevel            String?
   lastPromotionDate        DateTime?
@@ -364,6 +381,43 @@ model Employee {
   talentStatus             TalentStatus @default(NOT_ASSESSED)
   lastTalentEvaluationDate DateTime?
 
+  // People Directory additions (Employee Master Log Template)
+  // Personal Information
+  nationality        String?
+  numberOfDependents Int?
+
+  // Contact Information
+  emergencyContactName         String?
+  emergencyContactRelationship String?
+  emergencyContactPhone        String?
+
+  // Employment Details
+  probationEndDate DateTime?
+
+  // Organizational Data
+  legalEntity               String?
+  costCenter                String?
+  lastPromotionTransferDate DateTime?
+  previousDesignation       String?
+
+  // Compensation & Benefits
+  socialInsuranceSalary Float?
+
+  // Attendance & Leave
+  annualLeaveBalance Float?
+  sickLeaveTaken     Float?
+  hajjLeaveUsed      Float?
+
+  // Legal & Compliance
+  workPermitStatus String?
+  contractSigned   Boolean?
+  laborLawCategory String?
+
+  // Exit Data
+  reasonForLeaving       String?
+  endOfServiceSettlement Float?
+  rehireEligible         Boolean?
+
   user   User?   @relation("UserEmployee", fields: [userId], references: [id])
   userId String? @unique
 
@@ -372,6 +426,7 @@ model Employee {
   compensationRecords    CompensationRecord[]
   compensationDeductions CompensationDeduction[]
   compensationAdditions  CompensationAddition[]
+  compensationExtras     CompensationExtra[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

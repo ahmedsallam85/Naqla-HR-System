@@ -42,7 +42,7 @@ export default async function PersonnelPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Personnel</h1>
+          <h1 className="text-2xl font-bold">People Directory</h1>
           <p className="text-muted-foreground">
             {employees.length} employee{employees.length === 1 ? "" : "s"}
           </p>

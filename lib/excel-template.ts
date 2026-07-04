@@ -36,7 +36,7 @@ function fieldToCellValue(
   if (field.type === "date") return dateToCell(raw);
   if (field.type === "number") return Number(raw);
   if (field.type === "select" && field.options) {
-    const match = field.options.find((o) => o.value === raw);
+    const match = field.options.find((o) => o.value === String(raw));
     return match ? match.label : String(raw);
   }
   return String(raw);

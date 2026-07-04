@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { label: "Personnel", href: "/personnel", enabled: true, adminOnly: false },
+  { label: "People Directory", href: "/personnel", enabled: true, adminOnly: false },
   { label: "Job Grading", href: "/job-grading", enabled: true, adminOnly: false },
   { label: "Critical Positions", href: "/critical-positions", enabled: true, adminOnly: false },
   { label: "Compensation", href: "/compensation", enabled: true, adminOnly: true },

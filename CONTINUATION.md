@@ -1,6 +1,6 @@
 # NAQLA HR AI System — Continuation Notes
 
-Status snapshot as of 2026-06-26. Read this before picking the work back up.
+Status snapshot as of 2026-07-04. Read this before picking the work back up.
 
 ## Where things are
 
@@ -10,8 +10,8 @@ Status snapshot as of 2026-06-26. Read this before picking the work back up.
   - `logos black_white.pdf`
   - `HAY-TOOL-CONTINUATION.md` — source notes for the standalone Hay job-evaluation HTML tool that `lib/hay-evaluation.ts` was ported from
   - `CPA-TOOL-CONTINUATION.md` — source notes for the standalone Critical Position Assessment HTML tool that the Critical Positions module was ported from
-- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`, currently both at the same commit (`f3fc326`) — the Compensation module has been promoted to `main`/production.
-- A separate, already-built sister project owned by the same user — **`hr-payroll-saas`** (Python/Flask, repo `Sallam10/hr-payroll-saas`, local copy at `C:\Users\AhmedSallam\OneDrive - NAQLA Trucking\Desktop\HR AI System\Payroll\hr-payroll-saas-main\`) — has a verified Egyptian payroll tax engine (`modules/tax_engine.py`) and full payroll schema (salary records, benefits, debts/installments, payroll runs). It was used as reference/source material for this repo's Compensation module (ported, not called into at runtime — this app stays single-stack TypeScript). Worth checking again if a future module (e.g. Recruitment's offer-letter compa-ratio logic) needs payroll-adjacent calculations.
+- GitHub: **https://github.com/ahmedsallam85/Naqlq-HR-System** (private). Two branches: `main` and `staging`.
+- A separate, already-built sister project owned by the same user — **`hr-payroll-saas`** (Python/Flask, repo `Sallam10/hr-payroll-saas`, local copy at `C:\Users\AhmedSallam\OneDrive - NAQLA Trucking\Desktop\HR AI System\Payroll\hr-payroll-saas-main\`) — has a verified Egyptian payroll tax engine (`modules/tax_engine.py`) and full payroll schema. It was used as reference/source material for this repo's Compensation module (ported, not called into at runtime — this app stays single-stack TypeScript).
 - Build plan that was approved for the original Phase 0/1 scaffold: `C:\Users\AhmedSallam\.claude\plans\glittery-forging-castle.md`.
 
 ## How to run it locally
@@ -21,7 +21,7 @@ cd /c/Dev/naqla-hr-system
 npm run dev
 ```
 
-Open `http://localhost:3000/login`. Local dev's `.env` `DATABASE_URL` points at the **staging** Postgres database (no local SQLite anymore — the whole app runs on PostgreSQL everywhere now).
+Open `http://localhost:3000/login`. Local dev's `.env` `DATABASE_URL` points at the **staging** Postgres database (no local SQLite — the whole app runs on PostgreSQL everywhere now).
 
 ## Hosting (Railway + GitHub)
 
@@ -30,58 +30,97 @@ Project `naqla-hr-system` on Railway (workspace: ahmedsallam85's Projects), two 
 | | Staging (test) | Production (live) |
 |---|---|---|
 | URL | https://web-staging-f27e.up.railway.app | https://web-production-352ade.up.railway.app |
-| Branch | `staging` (auto-deploys on push) | `main` (auto-deploys on push) |
-| Postgres service | `Postgres` | `Postgres-Vts9` |
-| Login | `admin@naqla.com` / `ChangeMe123!` | `ahmed.sallam@naqlq.xyz` / (set directly by user, not in memory) |
-| Data | demo employees | Empty — real data only |
+| Postgres service | `Postgres` (eaa669c4) | `Postgres-SlGU` (2afe8b8d) |
+| Login | `admin@naqla.com` / `ChangeMe123!` | `ahmed.sallam@naqlq.xyz` / (set by user) |
 
-**Day-to-day workflow**: just `git push origin staging` or `git push origin main` — Railway auto-builds and deploys. No manual `railway up` needed anymore (that was only used for the initial setup). Established promotion flow: build + verify on `staging` first, then `git checkout main && git merge staging && git push origin main`.
+**Day-to-day workflow**: `railway up --service web --environment <staging|production> --detach`. The Railway CLI must be linked to the right environment first (`railway environment staging` or `railway environment production`) before running `railway add`. The web service is the same Railway service shared across both environments (same service ID `ae073393`).
 
-**If you ever need to deploy manually** (e.g. CLI is misbehaving): `railway up --service web --environment <staging|production>` — but `cd` into the repo first in the *same* shell call, since Railway's project link is tied to cwd and this harness's shell resets cwd between separate tool calls.
+**Established promotion flow**: build + verify on staging first, then deploy to production separately.
+
+> ⚠️ **IMPORTANT — Postgres services were recreated on 2026-07-04** (both staging and production). Both suffered a Railway private networking failure (see Gotchas below). The Postgres service names and credentials changed. If anything references the old service names `Postgres-Vts9` (production) or any previous staging Postgres, those are gone. Current active services are listed in the table above.
+
+> ⚠️ **IMPORTANT — Back up the production Postgres.** Railway volumes are the only copy of production data. Enable Point-in-Time Recovery in the Railway dashboard: Production → Postgres-SlGU → Settings → Backups. This has not been set up yet as of this session.
+
+## Start script — has retry logic
+
+`package.json`'s `start` script was changed from `prisma migrate deploy && next start` to:
+
+```json
+"start": "sh -c 'i=0; until prisma migrate deploy; do i=$((i+1)); if [ $i -ge 12 ]; then echo \"DB unreachable after 12 retries\"; exit 1; fi; echo \"DB not ready, retry $i/12 in 10s...\"; sleep 10; done && next start'"
+```
+
+This retries the DB connection up to 12 times (2 minutes total) before giving up — Railway sometimes starts the web container before Postgres is fully ready.
 
 ## Gotchas hit while building (so they don't get re-discovered)
 
-- **Prisma 7 dropped schema-level `url =` on datasource.** `PrismaClient` must be constructed with an explicit driver adapter: `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })` (see `lib/prisma.ts`, `prisma/seed.ts`, `prisma/seed-production.ts`). Plain `new PrismaClient()` throws.
+- **Prisma 7 dropped schema-level `url =` on datasource.** `PrismaClient` must be constructed with an explicit driver adapter: `new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) })` (see `lib/prisma.ts`, `prisma/seed.ts`). Plain `new PrismaClient()` throws.
 - **The Prisma client's real entry point is `lib/generated/prisma/client`, not `lib/generated/prisma`.** No index barrel file in this generator output.
 - **This shadcn/ui registry uses `@base-ui/react`, not Radix.** `Button` takes a `render` prop instead of `asChild`, and needs `nativeButton={false}` when the rendered element isn't an actual `<button>`.
 - **Next.js 16 renamed `middleware.ts` to `proxy.ts`** (identical export contract).
-- **NextAuth v5's `auth()` HOF silently breaks as the proxy.ts default export under Next 16** — it treated every request as logged in once deployed. Fixed by using `getToken` from `next-auth/jwt` directly in `proxy.ts`, with explicit `secureCookie: process.env.NODE_ENV === "production"` (otherwise it can't find the `__Secure-`-prefixed session cookie behind Railway's proxy).
-- **`trustHost: true`** is required in `auth.ts` for production (avoids `UntrustedHost` error), and **`AUTH_URL`** must be set to the exact public HTTPS domain (otherwise NextAuth generates redirects to the internal `localhost:8080` address instead of the real domain).
-- **Railway CLI (5.15.0) is flaky for provisioning.** `railway add --database postgres` / `railway deploy -t postgres` often hang or fail with a misleading `Unauthorized`, but may still succeed server-side — always verify with `railway service list --environment <env> --json` rather than trusting the command's exit status. A persistent `Unauthorized` across retries turned out to be a trial-plan resource limit, resolved by adding a payment method.
-- **"service" in Railway is a project-level entity shared across environments.** To deploy an existing service into a new environment, target it there (`railway up --service web --environment production`) rather than creating a same-named new one.
-- **Per-environment GitHub branch mapping must be set in the Railway dashboard, not the CLI.** `railway service source connect --branch X --environment Y` sets a *shared* service-level source — connecting staging after production silently overrode production's branch too (confirmed by testing). Fix: open the web service while viewing each environment specifically (environment switcher top-left) → Settings → Source → set the branch field there. Verified correct afterward by pushing distinct commits to each branch and confirming only the matching environment redeployed.
-- `package.json`: `build` = `prisma generate && next build`, `start` = `prisma migrate deploy && next start` (migrations run automatically every container start), `postinstall` = `prisma generate`. `prisma` package must be in `dependencies`, not `devDependencies` (needed at runtime).
-- **optional enum form fields need an `optionalEnum` zod helper** (`lib/validations/employee.ts`) — plain `z.enum([...]).optional()` doesn't treat `""` as unset, which broke Excel import for blank gender/maritalStatus/contractType/talentStatus cells. The literal array passed to it needs `as const` or the union type widens to `string` and breaks Prisma's generated types downstream.
-- **Job Grading and Critical Positions are both ports of standalone single-file HTML tools** the user already had (`reference-assets/HAY-TOOL-CONTINUATION.md`, `reference-assets/CPA-TOOL-CONTINUATION.md`) — when extending either module, check the source notes first since they document the original scoring methodology and what was deliberately left out of the port.
-- **Local dev's `DATABASE_URL` points at the live staging Postgres DB, not a throwaway local one.** Manual smoke-testing through the UI (or any one-off script) writes real rows there. After any such test, clean up with a temp script using `prisma` from `lib/prisma.ts` (run via `npx tsx` after sourcing `.env` into the shell — plain `npx tsx` doesn't auto-load `.env` the way Next.js does) — don't leave test rows sitting in staging.
-- **Running a one-off Prisma script outside Next.js**: `npx tsx some-script.ts` only resolves `node_modules` (and loads `.env`) correctly if the script physically lives inside the project tree — a script in a temp/scratch directory outside the repo can't resolve `@/lib/prisma` or its dependencies even with absolute imports. Write the throwaway script into the repo root, run it, then delete it.
+- **NextAuth v5's `auth()` HOF silently breaks as the proxy.ts default export under Next 16** — fixed by using `getToken` from `next-auth/jwt` directly in `proxy.ts`, with explicit `secureCookie: process.env.NODE_ENV === "production"`.
+- **`trustHost: true`** is required in `auth.ts` for production (avoids `UntrustedHost` error), and **`AUTH_URL`** must be set to the exact public HTTPS domain.
+- **Railway private networking can break permanently after a Postgres crash.** Symptoms: `P1001: Can't reach database server at <name>.railway.internal` even after the Postgres service shows "Online". The fix is to delete the Postgres service and create a new one — the old volume is preserved automatically and can be used to recover data (see Data Recovery below). This happened to both staging and production on 2026-07-04.
+- **Railway's public TCP proxy (`*.proxy.rlwy.net`) is reachable from outside Railway but NOT from within Railway containers.** When Postgres private networking breaks, you can't work around it by switching `DATABASE_URL` to the public URL — it still fails from inside the container with P1001. The only real fix is to recreate the Postgres service.
+- **`railway add --database postgres` has no `--environment` flag.** You must switch the linked environment first: `railway environment <staging|production>`, then run the add command. If you forget, the new service goes into whichever environment is currently linked.
+- **When you attach an old Postgres volume to a new Postgres service, the DB password used is the one stored inside the old volume's `pg_authid` table — not the new service's `POSTGRES_PASSWORD` env var.** The new service generates fresh credentials but the old data directory ignores them. Use the OLD password (from the crashed service's variables) to connect to the recovery service.
+- **Railway volume persists after service deletion.** When you delete a Postgres service, its volume is NOT deleted — it becomes "detached" and shows in `railway volume list`. This is how data recovery is possible.
+- **Data recovery procedure** (used twice today, works reliably):
+  1. Create a temp Postgres service: `railway add --database postgres --json`
+  2. Detach its auto-created volume: `railway volume detach --volume <new-vol-id> --yes`
+  3. Link to the temp service: `railway service link <temp-service-id>`
+  4. Attach the old volume: `railway volume attach --volume <old-vol-id> --yes`
+  5. Wait ~20s for it to redeploy with old data
+  6. Write a `recover-data.mjs` in the project root (uses `pg` from `node_modules`) connecting old → new using OLD password for src and new service's public URL for dst
+  7. Run: `node recover-data.mjs`
+  8. Delete temp service: `railway service delete --service <name> --environment <env> --yes`
+  9. Delete `recover-data.mjs`
+- **`railway service delete` is non-interactive in background mode** — pass `--yes` and both `--service` and `--environment` explicitly.
+- **optional enum form fields need an `optionalEnum` zod helper** (`lib/validations/employee.ts`) — plain `z.enum([...]).optional()` doesn't treat `""` as unset.
+- **Running a one-off Prisma script outside Next.js**: `npx tsx some-script.ts` only resolves `node_modules` correctly if the script physically lives inside the project tree — write throwaway scripts in the repo root, run them, then delete them.
+- **Prisma `reportingManagerId` type conflict**: `reportingManagerId: string | undefined` is not assignable to Prisma's `EmployeeCreateInput` union type (it expects either the relational input object or `undefined`, not a scalar string). Fixed with `as any` on both the `prisma.employee.create()` and `prisma.employee.update()` calls in `app/api/employees/route.ts` and `app/api/employees/[id]/route.ts`.
 
 ## What's built
 
-- **Personnel** — full Employee schema, role-gated CRUD API at `/api/employees`, list/detail/create/edit UI.
-- **Admin-managed dropdown lists** (`/admin/lookups`, HR_ADMIN only) — generic `LookupValue` table backs Employee org-placement fields instead of free text. Field metadata in `lib/employee-fields.ts`.
+- **People Directory** (renamed from "Personnel" — URL `/personnel/` unchanged) — full Employee schema with 8 form sections matching the Employee Master Log Template, role-gated CRUD API at `/api/employees`, list/detail/create/edit UI. Employee form has numbered section headers (1–8) with muted background, consistent `h-10` field height across all inputs and selects, 3-column grid for small sections. Detail view uses the same numbered section style with `grid-cols-2 lg:grid-cols-3`.
+
+  Employee model has **20 additional fields** added in migration `20260704000000_people_directory_fields`:
+  - Personal: `nationality`, `numberOfDependents`
+  - Contact/Emergency: `emergencyContactName`, `emergencyContactRelationship`, `emergencyContactPhone`
+  - Employment: `probationEndDate`, `legalEntity`, `costCenter`, `lastPromotionTransferDate`, `previousDesignation`
+  - Compensation: `socialInsuranceSalary`
+  - Leave: `annualLeaveBalance`, `sickLeaveTaken`, `hajjLeaveUsed`
+  - Legal: `workPermitStatus`, `contractSigned`, `laborLawCategory`
+  - Exit: `reasonForLeaving`, `endOfServiceSettlement`, `rehireEligible`
+
+  `firstName` and `lastName` are now nullable (migration `20260704000001_nullable_first_last_name`). The form uses a single **Full Name (as on National ID)** field (`fullName`) instead. `employeeCode` is auto-generated and shown read-only in the form.
+
+  Six new admin lookup categories added to `lib/lookup-categories.ts`: `NATIONALITY`, `EMERGENCY_CONTACT_RELATIONSHIP`, `LEGAL_ENTITY`, `COST_CENTER`, `WORK_PERMIT_STATUS`, `LABOR_LAW_CATEGORY`.
+
+- **Admin-managed dropdown lists** (`/admin/lookups`, HR_ADMIN only) — generic `LookupValue` table backs Employee org-placement fields. Field metadata in `lib/employee-fields.ts`.
 - **Bulk Excel import/export** (Personnel toolbar) — `lib/excel-template.ts` (exceljs), matches existing rows by Employee Code/Business Email, creates the rest, auto-adds new lookup values, reports per-row errors without blocking the file.
-- **Job Grading** (`/job-grading`) — Hay methodology evaluation calculator (`lib/hay-evaluation.ts`), verified against the source tool's documented test cases. `JobRole` + `JobEvaluation` models persist history. Know-How/Problem-Solving/Accountability validity-color matrices and calculations have been corrected against the official Hay guide-chart manual (commits `f70f946`, `cb448fe`, `c729c16`). **No Naqla-grade/compensation-bracket mapping yet** — deliberately deferred (no fake financial data), current scope is Hay points/level only.
-- **Critical Positions / Succession Planning** (`/critical-positions`) — `Designation` master list (Excel import/export, optionally linked to a real Personnel record as holder), 13-question Likert `CriticalAssessment` (5 sections, 0-65, Imperative/Important/Discretionary/Not Urgent priority bands) with full history per position, and a `SuccessProfile` form per position (SIGMA-template-style: Succession Position, incumbent, eligibility year, urgency, criteria, leadership). First-pass port from a standalone HTML tool — **known gaps**: the source tool's Results-tab bar-chart dashboard and its 3-sheet Excel export (Question Reference / Scoring Guide sheets) were not carried over. Also, the 13 question texts were written to match each section's stated purpose rather than transcribed verbatim from a source that only specified section names/weights/thresholds — flagged for HR to review/refine.
-- **Compensation** (`/compensation`, HR_ADMIN only — live on both `staging` and `main`/production) — Egyptian payroll tax engine ported to TypeScript (`lib/payroll-tax.ts`) from the sister `hr-payroll-saas` project's verified `tax_engine.py`, golden-value-tested to match exactly. `CompensationRecord` (versioned history per employee, Standard gross-in or Reverse net-in calc mode → derives social insurance employee/company share, gross salary, income tax, martyr fund), `CompensationDeduction` (Premium Card / Money Fellows / Store Installment / Salary Advance Installment / Penalty, with optional installment tracking), `CompensationAddition` (sign-on bonus / performance bonus / salary advance), and a bank-transfer Excel export (`lib/compensation-export.ts`) logged per run in `BankTransferExport` for audit. **Known gap**: bank file column layout is a generic placeholder — the spec says "based on criteria we will feed the system with" and that criteria hasn't been provided yet; adjust `lib/compensation-export.ts` once the real bank format is known. Compa ratio is a manual entry field — no Job Grading grade→bracket mapping exists yet to auto-derive it. Migration applies automatically on deploy (`prisma migrate deploy` runs on every container start per `package.json`'s `start` script) — production's Postgres-Vts9 picks it up the same way staging's did, no manual migration step needed.
+- **Job Grading** (`/job-grading`) — Hay methodology evaluation calculator (`lib/hay-evaluation.ts`). `JobRole` + `JobEvaluation` models persist history. **No Naqla-grade/compensation-bracket mapping yet** — deliberately deferred.
+- **Critical Positions / Succession Planning** (`/critical-positions`) — `Designation` master list, 13-question Likert `CriticalAssessment` (5 sections, 0-65, priority bands), `SuccessProfile` per position. **Known gaps**: Results-tab bar-chart dashboard and 3-sheet Excel export not ported; 13 question texts need HR review.
+- **Compensation** (`/compensation`, HR_ADMIN only) — Egyptian payroll tax engine (`lib/payroll-tax.ts`), `CompensationRecord` (versioned history, Standard gross-in or Reverse net-in), `CompensationDeduction`, `CompensationAddition`, bank-transfer Excel export logged in `BankTransferExport`. **Known gap**: bank file column layout is a placeholder — real bank format not yet provided.
 
 ## Not yet built (remaining phases)
 
-Per `reference-assets/People.docx` ([[project-hr-system-spec]] in Claude's memory):
+Per `reference-assets/People.docx`:
 
 1. **Recruitment** — requisition workflow, AI CV screening/sourcing, interview pipeline, AI-drafted offer letters, email automation, Zoho Recruit integration.
 2. **Onboarding** — session assignment, onboarding video auto-send, calendar invites, handbook/welcome emails, completion notifications.
 3. **Performance Management** — monthly scorecard (MSC) cycle, probation-evaluation notifications at day 75/80.
-4. **Talent Management (9-box grid)** — the spec's 9-box performance×potential grid assessment is still separate from the Critical Positions/succession work above; not started.
+4. **Talent Management (9-box grid)** — performance × potential grid assessment; not started.
 5. **HR chatbot** — Claude-API-backed assistant over company policy docs.
 
 Smaller known gaps inside already-shipped modules:
 - Critical Positions: Results dashboard (bar chart) + full 3-sheet Excel export, 13-question wording review with HR.
 - Job Grading: grade → compensation bracket mapping (would let Compensation's compa ratio be auto-derived instead of manual).
-- Compensation: real bank-transfer file format (see above) — only known gap left, no branch-promotion work pending anymore.
-
-Email/calendar integration is intentionally stubbed/out-of-scope until a module actually needs it (Onboarding is the first).
+- Compensation: real bank-transfer file format.
+- **Production Postgres backups: not yet enabled** — must be set up in Railway dashboard before any real HR data is entered.
 
 ## Suggested next step
 
-Compensation is live on both staging and production. Confirm it behaves on production (https://web-production-352ade.up.railway.app) with real data once HR starts entering it. Next big phase per spec order is **Recruitment** — worth a short planning pass first, since it touches AI CV screening and a Zoho Recruit integration decision.
+People Directory is now fully live on production with the redesigned 8-section form. Before starting the next module:
+
+1. **Enable Railway Postgres backups on production** (Postgres-SlGU) — critical before HR starts entering real data.
+2. **Recruitment** is next per spec order — worth a short planning pass first since it touches AI CV screening and a Zoho Recruit integration decision.

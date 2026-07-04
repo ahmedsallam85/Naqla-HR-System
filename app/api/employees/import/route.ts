@@ -106,9 +106,10 @@ export async function POST(req: NextRequest) {
 
       if (target) {
         const fullName =
-          parsed.data.firstName && parsed.data.lastName
+          parsed.data.fullName ||
+          (parsed.data.firstName && parsed.data.lastName
             ? `${parsed.data.firstName} ${parsed.data.lastName}`
-            : undefined;
+            : undefined);
         await prisma.employee.update({
           where: { id: target.id },
           data: { ...data, fullName },
@@ -116,7 +117,12 @@ export async function POST(req: NextRequest) {
         updated++;
       } else {
         const employeeCode = await nextEmployeeCode();
-        const fullName = `${parsed.data.firstName} ${parsed.data.lastName}`;
+        const fullName =
+          parsed.data.fullName ||
+          (parsed.data.firstName && parsed.data.lastName
+            ? `${parsed.data.firstName} ${parsed.data.lastName}`
+            : "");
+        if (!fullName) throw new Error("Full Name is required");
         const createdEmployee = await prisma.employee.create({
           data: { ...data, employeeCode, fullName } as never,
         });
