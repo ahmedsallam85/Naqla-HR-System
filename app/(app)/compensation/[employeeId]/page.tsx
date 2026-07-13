@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { CompensationDeductionsManager } from "@/components/compensation-deductions-manager";
 import { CompensationAdditionsManager } from "@/components/compensation-additions-manager";
+import { CompensationExtrasManager } from "@/components/compensation-extras-manager";
 
 function money(n: number) {
   return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -110,6 +111,12 @@ export default async function CompensationDetailPage({
                 <p className="text-xs text-muted-foreground">Last commission received</p>
                 <p>{latest.lastCommissionReceivedAmount != null ? money(latest.lastCommissionReceivedAmount) : "—"}</p>
               </div>
+              {latest.totalCostMonthly != null && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Total monthly cost to company</p>
+                  <p className="text-lg font-bold text-primary">{money(latest.totalCostMonthly)}</p>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-muted-foreground">No compensation record yet.</p>
@@ -158,6 +165,7 @@ export default async function CompensationDetailPage({
         </CardContent>
       </Card>
 
+      <CompensationExtrasManager employeeId={employee.id} />
       <CompensationDeductionsManager employeeId={employee.id} />
       <CompensationAdditionsManager employeeId={employee.id} />
     </div>

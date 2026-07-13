@@ -132,6 +132,49 @@ export function calculateReverse(
   return { ...r, totalCost: mid + r.companySi + allowancesMonthly };
 }
 
+export type NetBasedPayrollResult = {
+  base: number;          // agreedNet / 3 * factor; used like gross for SI + tax
+  insured: number;
+  empSi: number;
+  companySi: number;
+  taxPoolAnnual: number; // annual taxable = salary taxable + recurring extras * 12
+  annualTax: number;
+  monthlyTax: number;
+  martyr: number;
+  totalCostMonthly: number; // full monthly burden: net + extras + empSi + companySi + tax + martyr
+};
+
+// NET_BASED calc method:
+//   1. base = agreedNet / 3; if base < 15_000 → base *= 2 else base *= 1.5
+//   2. SI + tax are derived from base (treated as the gross equivalent)
+//   3. recurringExtras are added to the annual tax pool
+//   4. totalCostMonthly = agreedNet + recurringExtras + empSi + companySi + monthlyTax + martyr
+export function calculateNetBased(
+  agreedNet: number,
+  cfg: TaxConfig,
+  brackets: TaxBracket[],
+  recurringExtras = 0,
+): NetBasedPayrollResult {
+  const third = agreedNet / 3;
+  const base = third < 15_000 ? third * 2 : third * 1.5;
+
+  const insured = Math.min(base / cfg.insuredDivisor, cfg.maxInsured);
+  const empSi = insured * cfg.empRate;
+  const companySi = insured * cfg.companyRate;
+
+  const mex = cfg.annualExemption / 12;
+  const salaryTaxable = Math.max(0, (base - empSi - mex) * 12);
+  const taxPoolAnnual = salaryTaxable + recurringExtras * 12;
+
+  const aTax = annualTax(taxPoolAnnual, brackets);
+  const monthlyTax = aTax / 12;
+  const martyr = (base + recurringExtras) * cfg.martyrRate;
+
+  const totalCostMonthly = agreedNet + recurringExtras + empSi + companySi + monthlyTax + martyr;
+
+  return { base, insured, empSi, companySi, taxPoolAnnual, annualTax: aTax, monthlyTax, martyr, totalCostMonthly };
+}
+
 export const DEFAULT_TAX_CONFIG: TaxConfig = {
   annualExemption: 20000,
   maxInsured: 16700,

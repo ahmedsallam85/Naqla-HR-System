@@ -5,6 +5,7 @@ import { compensationRecordInputSchema } from "@/lib/validations/compensation";
 import {
   calculateStandard,
   calculateReverse,
+  calculateNetBased,
   DEFAULT_TAX_CONFIG,
   DEFAULT_TAX_BRACKETS,
 } from "@/lib/payroll-tax";
@@ -41,32 +42,62 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
   const input = parsed.data;
 
-  const result =
-    input.calcMethod === "REVERSE"
-      ? calculateReverse(input.amount, DEFAULT_TAX_CONFIG, DEFAULT_TAX_BRACKETS, input.agreedNetAllowances)
-      : calculateStandard(input.amount, DEFAULT_TAX_CONFIG, DEFAULT_TAX_BRACKETS, input.agreedNetAllowances);
+  let recordData: Parameters<typeof prisma.compensationRecord.create>[0]["data"];
 
-  const record = await prisma.compensationRecord.create({
-    data: {
+  if (input.calcMethod === "NET_BASED") {
+    // agreedNetAllowances carries the total recurring extras sum passed from the form
+    const r = calculateNetBased(
+      input.amount,
+      DEFAULT_TAX_CONFIG,
+      DEFAULT_TAX_BRACKETS,
+      input.agreedNetAllowances,
+    );
+    recordData = {
+      employeeId,
+      jobLevel: employee.jobLevel,
+      compaRatio: input.compaRatio,
+      calcMethod: "NET_BASED",
+      agreedNetBasicSalary: input.amount,
+      agreedNetAllowances: input.agreedNetAllowances,
+      totalAgreedNetSalary: input.amount + input.agreedNetAllowances,
+      socialInsuredSalary: r.insured,
+      socialInsuranceEmployeeShare: r.empSi,
+      socialInsuranceCompanyShare: r.companySi,
+      grossSalary: r.base,
+      salaryTaxAnnual: r.annualTax,
+      salaryTaxMonthly: r.monthlyTax,
+      martyrFundDeduction: r.martyr,
+      totalCostMonthly: r.totalCostMonthly,
+      lastCommissionReceivedAmount: input.lastCommissionReceivedAmount,
+      notes: input.notes,
+      enteredById: session?.user?.id,
+    };
+  } else {
+    const r =
+      input.calcMethod === "REVERSE"
+        ? calculateReverse(input.amount, DEFAULT_TAX_CONFIG, DEFAULT_TAX_BRACKETS, input.agreedNetAllowances)
+        : calculateStandard(input.amount, DEFAULT_TAX_CONFIG, DEFAULT_TAX_BRACKETS, input.agreedNetAllowances);
+    recordData = {
       employeeId,
       jobLevel: employee.jobLevel,
       compaRatio: input.compaRatio,
       calcMethod: input.calcMethod,
-      agreedNetBasicSalary: result.officialNet,
+      agreedNetBasicSalary: r.officialNet,
       agreedNetAllowances: input.agreedNetAllowances,
-      totalAgreedNetSalary: result.takeHome,
-      socialInsuredSalary: result.insured,
-      socialInsuranceEmployeeShare: result.empSi,
-      socialInsuranceCompanyShare: result.companySi,
-      grossSalary: result.gross,
-      salaryTaxAnnual: result.annualTax,
-      salaryTaxMonthly: result.monthlyTax,
-      martyrFundDeduction: result.martyr,
+      totalAgreedNetSalary: r.takeHome,
+      socialInsuredSalary: r.insured,
+      socialInsuranceEmployeeShare: r.empSi,
+      socialInsuranceCompanyShare: r.companySi,
+      grossSalary: r.gross,
+      salaryTaxAnnual: r.annualTax,
+      salaryTaxMonthly: r.monthlyTax,
+      martyrFundDeduction: r.martyr,
       lastCommissionReceivedAmount: input.lastCommissionReceivedAmount,
       notes: input.notes,
       enteredById: session?.user?.id,
-    },
-  });
+    };
+  }
 
+  const record = await prisma.compensationRecord.create({ data: recordData });
   return NextResponse.json(record, { status: 201 });
 }

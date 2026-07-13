@@ -22,18 +22,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  FREQUENCY_OPTIONS,
+  frequencyLabel,
+  frequencyBadgeVariant,
+  type ExtraFrequency,
+} from "@/components/compensation-extras-manager";
 
-const DEDUCTION_TYPES = [
-  { value: "PREMIUM_CARD", label: "Premium Card" },
-  { value: "MONEY_FELLOWS", label: "Money Fellows" },
-  { value: "STORE_INSTALLMENT", label: "Store Installment" },
-  { value: "SALARY_ADVANCE_INSTALLMENT", label: "Salary Advance Installment" },
-  { value: "PENALTY", label: "Penalty" },
-] as const;
-
-function typeLabel(type: string) {
-  return DEDUCTION_TYPES.find((t) => t.value === type)?.label ?? type;
-}
+type LookupValue = { id: string; value: string };
 
 type Deduction = {
   id: string;
@@ -41,6 +37,7 @@ type Deduction = {
   totalAmount: number | null;
   numInstallments: number | null;
   monthlyAmount: number;
+  frequency: string;
   startDate: string;
   endDate: string | null;
   status: "ACTIVE" | "COMPLETED" | "CANCELLED";
@@ -49,20 +46,27 @@ type Deduction = {
 
 export function CompensationDeductionsManager({ employeeId }: { employeeId: string }) {
   const [deductions, setDeductions] = useState<Deduction[]>([]);
+  const [types, setTypes] = useState<LookupValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [type, setType] = useState<string>(DEDUCTION_TYPES[0].value);
+  const [type, setType] = useState<string>("");
   const [monthlyAmount, setMonthlyAmount] = useState("");
+  const [frequency, setFrequency] = useState<ExtraFrequency>("MONTHLY");
   const [totalAmount, setTotalAmount] = useState("");
   const [numInstallments, setNumInstallments] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [notes, setNotes] = useState("");
 
   async function load() {
     setLoading(true);
-    const res = await fetch(`/api/compensation/${employeeId}/deductions`);
-    if (res.ok) setDeductions(await res.json());
+    const [deductionsRes, typesRes] = await Promise.all([
+      fetch(`/api/compensation/${employeeId}/deductions`),
+      fetch(`/api/admin/lookups?category=COMPENSATION_DEDUCTION_TYPE`),
+    ]);
+    if (deductionsRes.ok) setDeductions(await deductionsRes.json());
+    if (typesRes.ok) setTypes(await typesRes.json());
     setLoading(false);
   }
 
@@ -82,9 +86,11 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
       body: JSON.stringify({
         type,
         monthlyAmount: Number(monthlyAmount),
+        frequency,
         totalAmount: totalAmount ? Number(totalAmount) : undefined,
         numInstallments: numInstallments ? Number(numInstallments) : undefined,
         startDate,
+        endDate: frequency !== "ONE_TIME" && endDate ? endDate : undefined,
         notes: notes || undefined,
       }),
     });
@@ -97,9 +103,11 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
     }
 
     setMonthlyAmount("");
+    setFrequency("MONTHLY");
     setTotalAmount("");
     setNumInstallments("");
     setStartDate("");
+    setEndDate("");
     setNotes("");
     toast.success("Deduction added");
     load();
@@ -132,49 +140,108 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Monthly deductions</CardTitle>
+        <CardTitle className="text-base">Deductions</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleAdd} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="space-y-1">
             <Label htmlFor="deductionType">Type</Label>
-            <Select value={type} onValueChange={(v) => setType(v ?? DEDUCTION_TYPES[0].value)}>
+            <Select value={type} onValueChange={(v) => setType(v ?? "")}>
               <SelectTrigger id="deductionType" className="w-full">
-                <SelectValue />
+                <SelectValue placeholder={types.length === 0 ? "Add types in admin" : "Select type"} />
               </SelectTrigger>
               <SelectContent>
-                {DEDUCTION_TYPES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {types.map((t) => (
+                  <SelectItem key={t.id} value={t.value}>
+                    {t.value}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label htmlFor="deductionMonthlyAmount">Monthly amount</Label>
-            <Input id="deductionMonthlyAmount" type="number" min="0" value={monthlyAmount} onChange={(e) => setMonthlyAmount(e.target.value)} />
+            <Label htmlFor="deductionAmount">Amount per period</Label>
+            <Input
+              id="deductionAmount"
+              type="number"
+              min="0"
+              value={monthlyAmount}
+              onChange={(e) => setMonthlyAmount(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="deductionFrequency">Frequency</Label>
+            <Select
+              value={frequency}
+              onValueChange={(v) => setFrequency((v ?? "MONTHLY") as ExtraFrequency)}
+            >
+              <SelectTrigger id="deductionFrequency" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FREQUENCY_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label htmlFor="deductionTotalAmount">Total amount</Label>
-            <Input id="deductionTotalAmount" type="number" min="0" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} placeholder="optional" />
+            <Input
+              id="deductionTotalAmount"
+              type="number"
+              min="0"
+              value={totalAmount}
+              onChange={(e) => setTotalAmount(e.target.value)}
+              placeholder="optional"
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="deductionNumInstallments"># installments</Label>
-            <Input id="deductionNumInstallments" type="number" min="1" value={numInstallments} onChange={(e) => setNumInstallments(e.target.value)} placeholder="optional" />
+            <Input
+              id="deductionNumInstallments"
+              type="number"
+              min="1"
+              value={numInstallments}
+              onChange={(e) => setNumInstallments(e.target.value)}
+              placeholder="optional"
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="deductionStartDate">Start date</Label>
-            <Input id="deductionStartDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            <Input
+              id="deductionStartDate"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
           </div>
-          <div className="flex items-end">
-            <Button type="submit" disabled={submitting} className="w-full">
-              Add
-            </Button>
-          </div>
+          {frequency !== "ONE_TIME" && (
+            <div className="space-y-1">
+              <Label htmlFor="deductionEndDate">End date</Label>
+              <Input
+                id="deductionEndDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          )}
           <div className="col-span-full space-y-1">
             <Label htmlFor="deductionNotes">Notes</Label>
-            <Input id="deductionNotes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="optional" />
+            <Input
+              id="deductionNotes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="optional"
+            />
+          </div>
+          <div className="col-span-full flex justify-end">
+            <Button type="submit" disabled={submitting || !type}>
+              Add deduction
+            </Button>
           </div>
         </form>
 
@@ -182,9 +249,11 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
           <TableHeader>
             <TableRow>
               <TableHead>Type</TableHead>
-              <TableHead>Monthly</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Frequency</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Start</TableHead>
+              <TableHead>End</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -192,12 +261,22 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
           <TableBody>
             {deductions.map((d) => (
               <TableRow key={d.id}>
-                <TableCell>{typeLabel(d.type)}</TableCell>
+                <TableCell>{d.type}</TableCell>
                 <TableCell>{d.monthlyAmount.toLocaleString()}</TableCell>
+                <TableCell>
+                  <Badge variant={frequencyBadgeVariant(d.frequency ?? "MONTHLY")}>
+                    {frequencyLabel(d.frequency ?? "MONTHLY")}
+                  </Badge>
+                </TableCell>
                 <TableCell>{d.totalAmount?.toLocaleString() ?? "—"}</TableCell>
                 <TableCell>{new Date(d.startDate).toLocaleDateString()}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {d.endDate ? new Date(d.endDate).toLocaleDateString() : "—"}
+                </TableCell>
                 <TableCell>
-                  <Badge variant={d.status === "ACTIVE" ? "default" : "secondary"}>{d.status}</Badge>
+                  <Badge variant={d.status === "ACTIVE" ? "default" : "secondary"}>
+                    {d.status}
+                  </Badge>
                 </TableCell>
                 <TableCell className="text-right space-x-2">
                   {d.status === "ACTIVE" && (
@@ -213,7 +292,7 @@ export function CompensationDeductionsManager({ employeeId }: { employeeId: stri
             ))}
             {!loading && deductions.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No deductions yet.
                 </TableCell>
               </TableRow>
