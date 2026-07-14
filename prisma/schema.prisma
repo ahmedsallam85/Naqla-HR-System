@@ -317,6 +317,52 @@ model BankTransferExport {
   createdAt DateTime @default(now())
 }
 
+model EmployeeSalaryHistory {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount        Float
+  effectiveDate DateTime @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@index([employeeId])
+}
+
+model EmployeeFixedAddition {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  label      String
+  amount     Float
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([employeeId])
+}
+
+enum PayrollLineItemType {
+  VARIABLE_ADDITION
+  DEDUCTION
+}
+
+model PayrollMonthLineItem {
+  id         String              @id @default(cuid())
+  employeeId String
+  employee   Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year       Int
+  month      Int
+  type       PayrollLineItemType
+  label      String
+  amount     Float
+  notes      String?
+  createdAt  DateTime            @default(now())
+
+  @@index([employeeId, year, month])
+  @@index([year, month])
+}
+
 model Employee {
   id           String @id @default(cuid())
   employeeCode String @unique
@@ -401,6 +447,7 @@ model Employee {
   previousDesignation       String?
 
   // Compensation & Benefits
+  basicGrossSalary      Float?
   socialInsuranceSalary Float?
 
   // Attendance & Leave
@@ -427,6 +474,9 @@ model Employee {
   compensationDeductions CompensationDeduction[]
   compensationAdditions  CompensationAddition[]
   compensationExtras     CompensationExtra[]
+  salaryHistory          EmployeeSalaryHistory[]
+  fixedAdditions         EmployeeFixedAddition[]
+  payrollLineItems       PayrollMonthLineItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

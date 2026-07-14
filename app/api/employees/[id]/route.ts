@@ -36,6 +36,19 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     data.fullName ||
     (data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : undefined);
 
+  // Track basicGrossSalary changes in history
+  if (data.basicGrossSalary !== undefined) {
+    const current = await prisma.employee.findUnique({
+      where: { id },
+      select: { basicGrossSalary: true },
+    });
+    if (current && current.basicGrossSalary !== data.basicGrossSalary) {
+      await prisma.employeeSalaryHistory.create({
+        data: { employeeId: id, amount: data.basicGrossSalary },
+      });
+    }
+  }
+
   const employee = await prisma.employee.update({
     where: { id },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

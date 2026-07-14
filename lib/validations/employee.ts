@@ -97,6 +97,7 @@ export const employeeSchema = z.object({
   previousDesignation: optionalString,
 
   // Compensation & Benefits
+  basicGrossSalary: optionalFloat,
   socialInsuranceNumber: optionalString,
   socialInsuranceStatus: optionalString,
   socialInsuranceSalary: optionalFloat,

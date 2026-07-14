@@ -112,6 +112,7 @@ export const ORG_DATA_FIELDS: FieldConfig[] = [
 
 // ── Compensation & Benefits ─────────────────────────────────────────────────
 export const COMP_BENEFITS_FIELDS: FieldConfig[] = [
+  { name: "basicGrossSalary", label: "Basic Gross Salary", type: "number" },
   { name: "socialInsuranceNumber", label: "Social Insurance No.", type: "text" },
   { name: "socialInsuranceStatus", label: "Social Insurance Status", type: "text" },
   { name: "socialInsuranceSalary", label: "Social Insurance Salary", type: "number" },
