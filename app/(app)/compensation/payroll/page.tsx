@@ -1,106 +1,56 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function generateMonths() {
+  const now = new Date();
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth() + 1;
+
+  const months: { year: number; month: number }[] = [];
+  let y = 2026;
+  let m = 1;
+
+  while (y < endYear || (y === endYear && m <= endMonth)) {
+    months.push({ year: y, month: m });
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+
+  return months.reverse();
+}
 
 export default async function PayrollPage() {
   const session = await auth();
-  if (session?.user?.role !== "HR_ADMIN") {
-    redirect("/");
-  }
+  if (session?.user?.role !== "HR_ADMIN") redirect("/");
 
-  const employees = await prisma.employee.findMany({
-    where: { status: "ACTIVE" },
-    select: {
-      id: true,
-      employeeCode: true,
-      fullName: true,
-      jobLevel: true,
-      compensationRecords: { orderBy: { createdAt: "desc" }, take: 1 },
-    },
-    orderBy: { fullName: "asc" },
-  });
-
-  const withRecord = employees.filter((e) => e.compensationRecords.length > 0).length;
+  const months = generateMonths();
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Payroll</h1>
-          <p className="text-muted-foreground">
-            {withRecord} of {employees.length} active employees have a compensation record
-          </p>
-        </div>
-        <Button
-          nativeButton={false}
-          render={<Link href="/compensation/export">Bank transfer export</Link>}
-        />
+      <div>
+        <h1 className="text-2xl font-bold">Payroll</h1>
+        <p className="text-muted-foreground">Select a month to view the payroll roster</p>
       </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Employee</TableHead>
-              <TableHead>Job level</TableHead>
-              <TableHead>Total net salary</TableHead>
-              <TableHead>Gross salary</TableHead>
-              <TableHead>Last updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {employees.map((emp) => {
-              const latest = emp.compensationRecords[0];
-              return (
-                <TableRow key={emp.id}>
-                  <TableCell>
-                    <Link
-                      href={`/compensation/${emp.id}`}
-                      className="font-medium hover:text-primary"
-                    >
-                      {emp.fullName}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
-                  </TableCell>
-                  <TableCell>{emp.jobLevel || "—"}</TableCell>
-                  <TableCell>
-                    {latest ? (
-                      latest.totalAgreedNetSalary.toLocaleString(undefined, {
-                        maximumFractionDigits: 2,
-                      })
-                    ) : (
-                      <Badge variant="secondary">Not set</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {latest?.grossSalary.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? "—"}
-                  </TableCell>
-                  <TableCell>
-                    {latest ? new Date(latest.createdAt).toLocaleDateString() : "—"}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {employees.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
-                  No active employees yet.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {months.map(({ year, month }) => {
+          const mm = String(month).padStart(2, "0");
+          return (
+            <Link
+              key={`${year}-${mm}`}
+              href={`/compensation/payroll/${year}/${mm}`}
+              className="flex flex-col items-center justify-center rounded-lg border px-4 py-6 text-center transition-colors hover:border-primary hover:bg-accent"
+            >
+              <span className="text-base font-semibold">{MONTH_NAMES[month - 1]}</span>
+              <span className="text-sm text-muted-foreground">{year}</span>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
