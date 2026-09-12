@@ -1,0 +1,18 @@
+modules = ["nodejs-20"]
+run = "npx prisma migrate deploy && npm run dev"
+entrypoint = "package.json"
+hidden = [".config", "package-lock.json", "lib/generated"]
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[deployment]
+run = ["sh", "-c", "npm run build && npm start"]
+deploymentTarget = "cloudrun"
+
+[env]
+NODE_ENV = "development"
